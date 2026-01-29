@@ -9,8 +9,9 @@ import pandas
 import screeninfo
 import winsound
 
-from .exception import CallException
-from .data.constants import COLUMNS
+from backend.cat_a_tool.exception import CallException
+from backend.cat_a_tool.data.constants import COLUMNS
+
 
 
 # from backend.logger import CustomLogger
@@ -61,35 +62,42 @@ def generate_window_locations(n):
 
 def restart_device(udid, custom_logger):
     try:
-        subprocess.run(f"adb -s {udid} reboot", shell=False)
-        custom_logger.log(f"Restarting device : {udid}")
+        subprocess.run(
+            ["adb", "-s", udid, "reboot"],
+            timeout=10
+        )
+        custom_logger.log(f"Restarting device: {udid}")
     except Exception as e:
-        custom_logger.log("Failed to restart", e)
+        custom_logger.log("Failed to restart device", e)
 
 
-def toggle_data(device, state: 0 or 1, custom_logger):
+def toggle_data(device, state: int, custom_logger):
     try:
-        custom_logger.log(f"Mobile Data turned(ON/OFF): {state}")
-        if state == 1:
-            subprocess.run(f'adb -s {device} shell "svc data enable"', shell=False)
-        if state == 0:
-            subprocess.run(f'adb -s {device} shell "svc data disable"', shell=False)
+        custom_logger.log(f"Mobile Data set to {state} for {device}")
+        cmd = [
+            "adb", "-s", device, "shell",
+            "svc", "data", "enable" if state == 1 else "disable"
+        ]
+        subprocess.run(cmd, check=True, timeout=10)
     except Exception as e:
         custom_logger.log("Failed to toggle Mobile Data", e)
         CallException(e, sys)
 
 
-def toggle_wifi(device, state: 0 or 1, custom_logger):
+def toggle_wifi(device, state: int, custom_logger):
     try:
-        custom_logger.log(f"Wi-Fi turned(ON/OFF): {state}")
-        if state == 1:
-            subprocess.run(f'adb -s {device} shell "svc wifi enable"', shell=False)
-        if state == 0:
-            subprocess.run(f'adb -s {device} shell "svc wifi disable"', shell=False)
+        custom_logger.log(f"Wi-Fi set to {state} for {device}")
+        cmd = [
+            "adb", "-s", device, "shell",
+            "svc", "wifi", "enable" if state == 1 else "disable"
+        ]
+        subprocess.run(cmd, check=True, timeout=10)
     except Exception as e:
-        custom_logger.log("Failed to toggle Wi-Fi.", e)
+        custom_logger.log("Failed to toggle Wi-Fi", e)
         CallException(e, sys)
 
+
+# -------------------- STATS --------------------
 
 def stats(df: pandas.DataFrame, custom_logger):
     try:
@@ -97,135 +105,111 @@ def stats(df: pandas.DataFrame, custom_logger):
         pass_count = df.Status[df.Status == 'PASS'].count()
         fail_count = df.Status[df.Status == 'FAILED'].count()
         call_drop_count = df.Status[df.Status == 'CALL_DROPPED'].count()
-        row = ["Pass Count = ", f"{pass_count} out of {total}", None,
-               "Fail Count = ", f"{fail_count} out of {total}", None,
-               "Call Drop Count = ", f"{call_drop_count} out of {total}", None] + [""] * (len(COLUMNS) - 9)
+
+        row = [
+            "Pass Count", f"{pass_count}/{total}", None,
+            "Fail Count", f"{fail_count}/{total}", None,
+            "Call Drop", f"{call_drop_count}/{total}", None
+        ] + [""] * (len(COLUMNS) - 9)
+
         df.loc[len(df)] = row
     except Exception as e:
+        custom_logger.log("Failed to calculate stats", e)
         CallException(e, sys)
-        custom_logger.log("Failed to Calculate Pass-Fail %", e)
     return df
 
 
+# -------------------- TELEPHONY --------------------
+
 def get_service_state(udid, custom_logger):
     try:
-        custom_logger.log(f"Fetching mServiceState from {udid}")
-        # Run the adb shell command and capture the output
-        adb_command = ["adb", '-s', udid, "shell", "dumpsys", "telephony.registry"]
-        completed_process = subprocess.run(adb_command, capture_output=True, text=True)
-        output = completed_process.stdout
+        custom_logger.log(f"Fetching ServiceState for {udid}")
+        result = subprocess.run(
+            ["adb", "-s", udid, "shell", "dumpsys", "telephony.registry"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
 
-        # Search for lines starting with "mServiceState"
-        mservice_lines = [line for line in output.splitlines() if line.strip().startswith("mServiceState")]
+        output = result.stdout
+        lines = [l for l in output.splitlines() if "mServiceState" in l]
 
-        voice_reg_states = []
-        data_reg_states = []
-
-        # Iterate through each mservice line and extract the desired portion
-        for line in mservice_lines:
-            pattern = r'mVoiceRegState=\d+\((.*?)\), mDataRegState=\d+\((.*?)\)'
-            match = re.search(pattern, line)
+        states = []
+        for line in lines:
+            match = re.search(r"mVoiceRegState=\d+\((.*?)\)", line)
             if match:
-                voice_reg_states.append(match.group(1))
-                data_reg_states.append(match.group(2))
+                states.append(match.group(1))
 
-        if voice_reg_states:
-            return voice_reg_states
-        else:
-            custom_logger.log("Failed to find the mServiceState")
-            return []
+        return states
     except Exception as e:
-        custom_logger.log("Error in mServiceState: ", e)
+        custom_logger.log("ServiceState error", e)
         return []
 
 
-def get_cell_info(udid:str, sim_slot: int, custom_logger):
-    custom_logger.log(f"Collecting Cell Info <{udid}>...")
+def get_cell_info(udid: str, sim_slot: int, custom_logger):
     try:
-        cell_infos = []
-        service_states = []
-        cell_info_line = None
-        service_state_line = None
-        # Run the command and capture the output
-        op_name_output = subprocess.check_output(["adb", "-s", f"{udid}", "shell", "getprop", "gsm.operator.alpha"],
-                                                 shell=False)
-        operator_name = op_name_output.decode("utf-8").strip()[:-1]
-        # Execute the adb command to get the telephony registry information
-        output = subprocess.check_output(["adb", "-s", udid, "shell", "dumpsys", "telephony.registry"], text=True)
+        custom_logger.log(f"Collecting Cell Info for {udid}")
 
-        # Search for "mCellInfo" and "mServiceState" in the output
-        cell_infos = [line for line in output.splitlines() if line.strip().startswith("mCellInfo")]
-        service_states = [line for line in output.splitlines() if line.strip().startswith("mServiceState")]
+        operator = subprocess.check_output(
+            ["adb", "-s", udid, "shell", "getprop", "gsm.operator.alpha"],
+            text=True,
+            timeout=10
+        ).strip()
 
-        # Fetch Cell info & service state of target sim slot
-        cell_info_line = cell_infos[sim_slot]
-        service_state_line = service_states[sim_slot]
-        custom_logger.log(f"Cellinfo -> {cell_info_line}\nServiceState-> {service_state_line}")
+        output = subprocess.check_output(
+            ["adb", "-s", udid, "shell", "dumpsys", "telephony.registry"],
+            text=True,
+            timeout=10
+        )
 
-        # Extract the desired information using regex
-        plmn_match = re.search(r"mMcc\s*=\s*(\d+)\s+mMnc\s*=\s*(\d+)", cell_info_line)
-        bandwidth_match = re.search(r"mBandwidth\s*=\s*(\d+)", cell_info_line)
-        if not bandwidth_match:
-            bandwidth_match = re.search(r"mCellBandwidths\s*=\s*\[(\d+)\]", service_state_line)
-        cell_id_match = re.search(r"m(Ci|Nci)\s*=\s*(\d+)", cell_info_line)
-        band_match = re.search(r"mBands\s*=\s*\[(\d+)\]", cell_info_line)
-        radio = re.search(r"getRilVoiceRadioTechnology\s*=\s*(\d+)\((\w+)\)", service_state_line)
-        pci_match = re.search(r"mPci\s*=\s*(\d+)", cell_info_line)
-        tac_match = re.search(r"mTac\s*=\s*(\d+)", cell_info_line)
-        earfcn_match = re.search(r"m(Earfcn|NrArfcn)\s*=\s*(\d+)", cell_info_line)
-        rsrp_match = re.search(r"(?i)\b(ss)?Rsrp\s*=\s*(-?\d+)", cell_info_line)
-        rsrq_match = re.search(r"(?i)\b(ss)?Rsrq\s*=\s*(-?\d+)", cell_info_line)
+        cell_lines = [l for l in output.splitlines() if l.strip().startswith("mCellInfo")]
+        service_lines = [l for l in output.splitlines() if l.strip().startswith("mServiceState")]
 
-        # Extracted values
-        plmn_mcc = plmn_match.group(1) if plmn_match else None
-        plmn_mnc = plmn_match.group(2) if plmn_match else None
-        bandwidth = bandwidth_match.group(1) if bandwidth_match else None
-        cell_id = cell_id_match.group(2) if cell_id_match else None
-        band = band_match.group(1) if band_match else None
-        VRT = radio.group(2) if radio else None
-        pci = pci_match.group(1) if pci_match else None
-        tac = tac_match.group(1) if tac_match else None
-        earfcn = earfcn_match.group(2) if earfcn_match else None
-        rsrp = rsrp_match.group(2) if rsrp_match else None
-        rsrq = rsrq_match.group(2) if rsrq_match else None
+        cell = cell_lines[sim_slot]
+        service = service_lines[sim_slot]
 
-        # Create a list with all the extracted variable values
-        info = [operator_name, plmn_mcc, plmn_mnc, bandwidth, cell_id, band, VRT, pci, tac, earfcn, rsrp, rsrq]
-        return info
+        def rx(p): 
+            m = re.search(p, cell + service)
+            return m.group(1) if m else None
+
+        return [
+            operator,
+            rx(r"mMcc=(\d+)"),
+            rx(r"mMnc=(\d+)"),
+            rx(r"mBandwidth=(\d+)"),
+            rx(r"m(Ci|Nci)=(\d+)"),
+            rx(r"mBands=\[(\d+)\]"),
+            rx(r"getRilVoiceRadioTechnology=\d+\((\w+)\)"),
+            rx(r"mPci=(\d+)"),
+            rx(r"mTac=(\d+)"),
+            rx(r"m(Earfcn|NrArfcn)=(\d+)"),
+            rx(r"Rsrp=(-?\d+)"),
+            rx(r"Rsrq=(-?\d+)")
+        ]
     except Exception as e:
         custom_logger.log("Failed to collect Cell Info", e)
-        CallException(e, sys)
-        return ["NA" * 12]
+        return ["NA"] * 12
 
 
 def get_location(udid, custom_logger):
-    # initiate default values
-    latitude = None
-    longitude = None
-    custom_logger.log(f"Getting GPS location (lat-long) for {udid}")
     try:
-        # Run the ADB command to get the location information
-        adb_command = f'adb -s {udid} shell dumpsys location'
-        result = subprocess.run(adb_command, capture_output=True, text=True, shell=False)
+        custom_logger.log(f"Getting GPS location for {udid}")
+        result = subprocess.run(
+            ["adb", "-s", udid, "shell", "dumpsys", "location"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
 
-        # Parse the output to extract latitude and longitude
-        output_lines = result.stdout.split('\n')
-
-        for line in output_lines:
-            if line.startswith('      last location=Location'):
-                # Extract latitude and longitude from the line
-                line = line.strip()
-                custom_logger.log(f"Locaion : {line}")
-                match = re.search(r'Location\[[a-zA-Z]+\s+(-?[\d.]+),\s*(-?[\d.]+)', line)
+        for line in result.stdout.splitlines():
+            if "last location=Location" in line:
+                match = re.search(r"Location\[[^ ]+ (-?\d+\.\d+), (-?\d+\.\d+)", line)
                 if match:
-                    latitude = float(match.group(1))
-                    longitude = float(match.group(2))
-                break
+                    return [float(match.group(1)), float(match.group(2))]
     except Exception as e:
-        custom_logger.log(f"Failed to detect location because", e)
-        CallException(e, sys)
+        custom_logger.log("Location error", e)
 
-    return [latitude, longitude]
+    return [None, None]
 
 
 def print_folder_structure(root_dir, indent='', structure=''):

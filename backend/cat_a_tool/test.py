@@ -3,8 +3,8 @@ import time
 import pandas as pd
 import requests
 
-from .logger import CustomLogger
-from .utils import get_cell_info, get_location
+from backend.cat_a_tool.logger import CustomLogger
+from backend.cat_a_tool.utils import get_cell_info, get_location
 
 # # Replace 'YOUR_AZURE_MAPS_SUBSCRIPTION_KEY' with your actual Azure Maps subscription key
 # api_key = 'AvKuHSR0h-ndVjyUlhLQTfWNRxsShy_ShsMfb7FFW7YAYlKW0KhzuQfQdvi4fMJX'

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+venv/
+.env/
+
+# Build / dist
+app.dist/
+app.build/
+dist/
+build/
+
+# Executables & binaries
+*.exe
+*.dll
+*.so
+
+# Nuitka / PyInstaller
+*.bin
+*.spec
+*.manifest
+*.xml
+
+# OS
+.DS_Store
+Thumbs.db

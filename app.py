@@ -3,6 +3,7 @@ import os
 import threading
 import webview
 from flask import Flask, send_from_directory, request, jsonify
+from backend.cat_a_tool.progress_state import progress_data
 
 # =====================================================
 # PATH FIX (IMPORTANT FOR WINDOWS / NUITKA)
@@ -13,7 +14,7 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 # =====================================================
-# BACKEND IMPORTS (SINGLE SOURCE)
+# BACKEND IMPORTS (SINGLE SOURCE) 
 # =====================================================
 
 from backend.cat_a_tool.service import (
@@ -83,6 +84,15 @@ def api_cat_a_devices():
         "mo_serial": cat_a_state["mo_serial"],
         "mt_serial": cat_a_state["mt_serial"],
     })
+
+
+
+@app.route("/api/cat-a/progress")
+def cat_a_progress():
+    from backend.cat_a_tool.progress_state import progress_data
+    return jsonify(progress_data)
+
+
 
 # =====================================================
 # FLASK RUNNER
