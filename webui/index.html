@@ -9,14 +9,13 @@
 
 <div class="window">
 
-    <!-- Title bar -->
+    <!-- TITLE BAR -->
     <div class="title-bar">
         Automation Tool – Integration Dashboard
     </div>
 
     <!-- HOME SCREEN -->
     <div class="content screen" id="home-screen">
-
         <div class="card active" id="cat-a">
             <h2>CAT-A</h2>
             <p>Call Automation Testing</p>
@@ -31,8 +30,6 @@
             <h2>TAT</h2>
             <p>Coming Soon</p>
         </div>
-
-
     </div>
 
     <!-- CAT-A SCREEN -->
@@ -40,89 +37,102 @@
 
         <div class="cat-header">
             <button id="back-home">← Back</button>
-            <h2 id="cat-a-left-title">CAT-A — Call Automation Testing</h2>
+            <h2>CAT-A — Call Automation Testing</h2>
         </div>
 
-        <div class="cat-body full-screen">
+        <div class="cat-body cat-layout">
 
-            <!-- SCREEN 1 -->
-            <div class="cat-step" id="cat-step-1">
-                <div class="form-row">
-                    <label>Select Test Type:</label>
-                    <select id="test-type">
-                        <option value="">-- Select --</option>
-                        <option value="short">Short calls</option>
-                        <option value="long">Long calls</option>
-                    </select>
+            <!-- LEFT PANEL -->
+            <div class="left-panel">
+                <h2>CAT-A</h2>
+                <p class="subtitle">Call Automation Testing</p>
 
-                    <label class="spaced">How many devices do you want to test?</label>
-                    <input type="number" id="device-count" min="1">
-
-                    <button class="primary" id="next-to-step-2">Next</button>
-                </div>
+                <p class="description">
+                    CAT-A automates MO–MT call testing by executing
+                    configurable call durations, delays, and iterations.
+                    Live progress and logs are shown during execution.
+                </p>
             </div>
 
-            <!-- SCREEN 2 -->
-            <div class="cat-step hidden" id="cat-step-2">
-                <div class="connection-row">
-                    <strong>MO-MT Pair 1:</strong>
-                    <span id="mo-status" class="status">MO1 Not Connected</span>
-                    <span id="mt-status" class="status">MT1 Not Connected</span>
+            <!-- RIGHT PANEL -->
+            <div class="right-panel">
 
+                <!-- STEP 1 -->
+                <div class="cat-step" id="cat-step-1">
+                    <div class="form-row">
+                        <label>Select Test Type:</label>
+                        <select id="test-type">
+                            <option value="">-- Select --</option>
+                            <option value="short">Short calls</option>
+                            <option value="long">Long calls</option>
+                        </select>
 
+                        <label class="spaced">How many devices?</label>
+                        <input type="number" id="device-count" min="1">
 
-                    <label class="spaced">Enter MT Phone Number:</label>
-                    <input type="text" id="mt-number" placeholder="Enter number">
-
-                    <button class="primary" id="save-and-next">Save</button>
-                </div>
-            </div>
-
-            <!-- SCREEN 3 -->
-            <div class="cat-step hidden" id="cat-step-3">
-
-                <div class="cat-title-top">
-                    CAT-A — Call Automation Testing
-                </div>
-
-                <div class="execution-container">
-
-                    <h3 class="center-title">Test Execution Parameters</h3>
-
-                    <div class="execution-grid">
-                        <label>Call Duration (in min):</label>
-                        <input type="number" id="iterations">
-
-                        <label>Call Delay (in sec):</label>
-                        <input type="number" id="call-duration">
-
-                        <label>No of Iterations:</label>
-                        <input type="number" id="call-delay">
+                        <button class="primary" id="next-to-step-2">Next</button>
                     </div>
+                </div>
 
+                <!-- STEP 2 -->
+                <div class="cat-step hidden" id="cat-step-2">
+                    <div class="connection-row">
+                        <span class="pair-label">MO-MT Pair 1:</span>
 
-                    <!-- PROGRESS BAR -->
-                    
-                    <p id="progress-text">Progress: 0%</p>
-                
-                    <progress id="progress-bar" value="0" max="100"></progress>
+                        <span id="mo-status" class="status">MO1 Not Connected</span>
+                        <span id="mt-status" class="status">MT1 Not Connected</span>
 
-                    <div class="action-row">
-                        <button class="secondary">Reset</button>
-                        <button class="info">Retest</button>
-                        <button class="success">Start Test</button>
+                        <input
+                            type="text"
+                            id="mt-number"
+                            placeholder="Enter MT Phone Number"
+                            class="mt-input"
+                        />
+
+                        <button class="primary small-btn" id="save-and-next">Save</button>
                     </div>
-
-                </div>
-            
-                <div class="execution-right">
-                    <h4>Live Logs</h4>
-                    <pre id="log-box" class="log-box"></pre>
                 </div>
 
+                <!-- STEP 3 -->
+                <div class="cat-step hidden" id="cat-step-3">
+
+                    <div class="execution-layout">
+
+                        <!-- EXECUTION PANEL -->
+                        <div class="execution-container">
+                            <h3 class="center-title">Test Execution Parameters</h3>
+
+                            <div class="execution-grid">
+                                <label>No of Iterations:</label>
+                                <input type="number" id="iterations">
+
+                                <label>Call Duration (in sec):</label>
+                                <input type="number" id="call-duration">
+
+                                <label>Call Delay (in sec):</label>
+                                <input type="number" id="call-delay">
+                            </div>
+
+                            <p id="progress-text">Progress: 0%</p>
+                            <progress id="progress-bar" value="0" max="100"></progress>
+
+                            <div class="action-row">
+                                <button class="secondary">Reset</button>
+                                <button class="info">Retest</button>
+                                <button class="success">Start Test</button>
+                            </div>
+                        </div>
+
+                        <!-- LOG PANEL -->
+                        <div class="execution-right">
+                            <h4>Live Logs</h4>
+                            <pre id="log-box" class="log-box"></pre>
+                        </div>
+
+                    </div>
                 </div>
+
             </div>
-
         </div>
     </div>
 
