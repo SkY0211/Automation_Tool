@@ -1,6 +1,12 @@
 document.addEventListener("DOMContentLoaded", () => {
 
     /* ===============================
+       GLOBAL UI STATE
+    =============================== */
+    let pairCount = 0;
+    let mtNumbers = {}; // {1: "xxxx", 2: "yyyy"}
+
+    /* ===============================
        HOME ↔ CAT-A NAVIGATION
     =============================== */
 
@@ -19,28 +25,25 @@ document.addEventListener("DOMContentLoaded", () => {
         if (event.target.closest("#cat-a")) showCatAScreen();
         if (event.target.closest("#back-home")) showHomeScreen();
     });
-    
+
     /* ===============================
        STEP REFERENCES
     =============================== */
-    
+
     const step1 = document.getElementById("cat-step-1");
     const step2 = document.getElementById("cat-step-2");
     const step3 = document.getElementById("cat-step-3");
 
     const testType = document.getElementById("test-type");
     const deviceCount = document.getElementById("device-count");
-    const mtNumber = document.getElementById("mt-number");
 
     const iterations = document.getElementById("iterations");
     const callDuration = document.getElementById("call-duration");
     const callDelay = document.getElementById("call-delay");
 
     const nextBtn = document.getElementById("next-to-step-2");
-    const saveBtn = document.getElementById("save-and-next");
-
-    const startBtn  = document.querySelector(".success");
-    const resetBtn  = document.querySelector(".secondary");
+    const startBtn = document.querySelector(".success");
+    const resetBtn = document.querySelector(".secondary");
     const retestBtn = document.querySelector(".info");
 
     /* ===============================
@@ -56,33 +59,92 @@ document.addEventListener("DOMContentLoaded", () => {
         if (step === 2) step2.classList.remove("hidden");
         if (step === 3) step3.classList.remove("hidden");
     }
-    
+
     /* ===============================
        STEP 1 → STEP 2
     =============================== */
-    
+
     nextBtn.addEventListener("click", () => {
-        if (!testType.value || !deviceCount.value) {
+        const count = Number(deviceCount.value);
+
+        if (!testType.value || !count) {
             alert("Please select test type and device count");
             return;
         }
+
+        if (count % 2 !== 0) {
+            alert("Please enter an even number of devices (MO–MT pairs)");
+            return;
+        }
+
+        pairCount = count / 2;
+        renderPairs(pairCount);
         showStep(2);
     });
 
     /* ===============================
-       STEP 2 → STEP 3
+       RENDER MO–MT PAIRS
     =============================== */
 
-    saveBtn.addEventListener("click", () => {
-        if (!mtNumber.value.match(/^[0-9]{8,15}$/)) {
-            alert("Enter a valid phone number");
-            return;
+    function renderPairs(count) {
+        const container = document.getElementById("pair-container");
+        container.innerHTML = "";
+        mtNumbers = {};
+
+        for (let i = 1; i <= count; i++) {
+            const row = document.createElement("div");
+            row.className = "connection-row";
+
+            row.innerHTML = `
+                <span class="pair-label">MO–MT Pair ${i}:</span>
+
+                <span id="mo-status-${i}" class="status">MO${i} Not Connected</span>
+                <span id="mt-status-${i}" class="status">MT${i} Not Connected</span>
+
+                <select class="device-select">
+                    <option>MO${i}</option>
+                </select>
+
+                <select class="device-select">
+                    <option>MT${i}</option>
+                </select>
+
+                <input type="text"
+                       class="mt-input"
+                       data-pair="${i}"
+                       placeholder="Enter MT${i} Phone Number"/>
+
+                <button class="primary small-btn" data-pair="${i}">
+                    Save
+                </button>
+            `;
+
+            container.appendChild(row);
         }
-        showStep(3);
+    }
+
+    /* ===============================
+       SAVE MT NUMBER PER PAIR
+    =============================== */
+
+    document.body.addEventListener("click", (e) => {
+        if (e.target.matches(".small-btn")) {
+            const pair = e.target.dataset.pair;
+            const input = document.querySelector(`input[data-pair="${pair}"]`);
+
+            if (!input.value.match(/^[0-9]{8,15}$/)) {
+                alert(`Enter valid MT number for Pair ${pair}`);
+                return;
+            }
+
+            mtNumbers[pair] = input.value;
+            alert(`MT number saved for Pair ${pair}`);
+        }
     });
 
     /* ===============================
        START TEST → BACKEND
+       (NO automation logic changed)
     =============================== */
 
     startBtn.addEventListener("click", async () => {
@@ -95,7 +157,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const payload = {
             test_type: testType.value,
             device_count: Number(deviceCount.value),
-            mt_number: mtNumber.value,
+            mt_number: mtNumbers[1] || "", // backend unchanged
             iterations: Number(iterations.value),
             call_duration: Number(callDuration.value),
             call_delay: Number(callDelay.value)
@@ -108,7 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify(payload)
             });
 
-            const data = await res.json();
+            await res.json();
             alert("CAT-A Test Started");
 
         } catch (err) {
@@ -118,7 +180,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     /* ===============================
-       RESET
+       RESET / RETEST
     =============================== */
 
     resetBtn.addEventListener("click", () => {
@@ -127,16 +189,13 @@ document.addEventListener("DOMContentLoaded", () => {
         callDelay.value = "";
     });
 
-    /* ===============================
-       RETEST (Back to Step 1)
-    =============================== */
-
     retestBtn.addEventListener("click", () => {
+        mtNumbers = {};
         showStep(1);
     });
 
     /* ===============================
-       STATUS POLLING
+       STATUS POLLING (MULTI-PAIR UI)
     =============================== */
 
     setInterval(async () => {
@@ -144,18 +203,55 @@ document.addEventListener("DOMContentLoaded", () => {
             const res = await fetch("/api/cat-a/status");
             const data = await res.json();
 
-            console.log("CAT-A STATUS:", data.state);
+            for (let i = 1; i <= pairCount; i++) {
+                const moEl = document.getElementById(`mo-status-${i}`);
+                const mtEl = document.getElementById(`mt-status-${i}`);
 
-            // Future UI hook:
-            // document.getElementById("status-text").innerText = data.state;
+                if (!moEl || !mtEl) continue;
+
+                moEl.textContent = data.mo_connected
+                    ? `MO${i} Connected`
+                    : `MO${i} Not Connected`;
+
+                mtEl.textContent = data.mt_connected
+                    ? `MT${i} Connected`
+                    : `MT${i} Not Connected`;
+
+                moEl.classList.toggle("connected", data.mo_connected);
+                mtEl.classList.toggle("connected", data.mt_connected);
+            }
+
+            startBtn.disabled = !(data.mo_connected && data.mt_connected);
 
         } catch (e) {
-            console.warn("Status API not ready");
+            console.error("Status polling failed", e);
         }
     }, 2000);
 
     /* ===============================
-       LOG STREAMING
+       PROGRESS BAR
+    =============================== */
+
+    setInterval(async () => {
+        try {
+            const res = await fetch("/api/cat-a/progress");
+            const data = await res.json();
+
+            const progressBar = document.getElementById("progress-bar");
+            const progressText = document.getElementById("progress-text");
+
+            if (!progressBar || !progressText) return;
+
+            progressBar.value = data.percent || 0;
+            progressText.innerText = `Progress: ${data.percent || 0}%`;
+
+        } catch (e) {
+            // silent
+        }
+    }, 1000);
+
+    /* ===============================
+       LIVE LOG STREAM
     =============================== */
 
     setInterval(async () => {
@@ -168,144 +264,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
             logBox.innerText = logs.join("\n");
             logBox.scrollTop = logBox.scrollHeight;
-
         } catch (e) {
-            // silent fail (desktop-safe)
+            // silent
         }
     }, 1500);
 
 });
-
-    setInterval(async () => {
-    try {
-        const res = await fetch("/api/cat-a/status");
-        const data = await res.json();
-
-        const moEl = document.getElementById("mo-status");
-        const mtEl = document.getElementById("mt-status");
-
-        // MO STATUS
-        if (data.mo_connected) {
-            moEl.textContent = "MO1 Connected";
-            moEl.classList.add("connected");
-        } else {
-            moEl.textContent = "MO1 Not Connected";
-            moEl.classList.remove("connected");
-        }
-
-        // MT STATUS
-        if (data.mt_connected) {
-            mtEl.textContent = "MT1 Connected";
-            mtEl.classList.add("connected");
-        } else {
-            mtEl.textContent = "MT1 Not Connected";
-            mtEl.classList.remove("connected");
-        }
-
-    } catch (e) {
-        console.error("Status polling failed", e);
-    }
-}, 2000);
-
-    const startBtn = document.querySelector(".success");
-
-setInterval(async () => {
-    try {
-        const res = await fetch("/api/cat-a/status");
-        const data = await res.json();
-
-        // Device status (unchanged)
-        document.getElementById("mo-status").innerText =
-            data.mo_connected ? "MO1 Connected" : "MO1 Not Connected";
-
-        document.getElementById("mt-status").innerText =
-            data.mt_connected ? "MT1 Connected" : "MT1 Not Connected";
-
-        startBtn.disabled = !(data.mo_connected && data.mt_connected);
-
-        // 👉 PROGRESS BAR UPDATE
-        if (data.progress) {
-            const percent = data.progress.percent || 0;
-            document.getElementById("progress-fill").style.width = percent + "%";
-            document.getElementById("progress-text").innerText =
-                `Progress: ${percent}%`;
-        }
-
-    } catch (e) {
-        console.error("Status polling failed", e);
-    }
-}, 2000);
-
-// ========================Start Test Click Handler============================== //
-
-startBtn.addEventListener("click", async () => {
-
-    console.log("Start Test clicked"); // 👈 ADD
-
-    if (!iterations.value || !callDuration.value || !callDelay.value) {
-        alert("Please fill all execution parameters");
-        return;
-    }
-
-    const payload = {
-    test_type: testType.value,                 // short / long
-    device_count: Number(deviceCount.value),   // device count
-    mt_number: mtNumber.value,                 // MT number
-
-    // execution params (STRICT mapping)
-    iterations: Number(iterations.value),
-    call_duration: Number(callDuration.value),
-    call_delay: Number(callDelay.value)
-    };
-
-    // Debug log (do NOT remove)
-    console.log("Payload being sent to backend:", payload);
-
-
-    const res = await fetch("/api/cat-a/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    console.log("Backend response:", data); // 👈 ADD
-
-    alert("Start request sent");
-});
-
-
-setInterval(async () => {
-    try {
-        const res = await fetch("/api/cat-a/progress");
-        const data = await res.json();
-
-        const progressBar = document.getElementById("progress-bar");
-        const progressText = document.getElementById("progress-text");
-
-        if (!progressBar || !progressText) return;
-
-        progressBar.value = data.percent;
-        progressText.innerText = `Progress: ${data.percent}%`;
-
-    } catch (e) {
-        console.warn("Progress API not ready");
-    }
-}, 1000);
-
-
-setInterval(async () => {
-    const logBox = document.getElementById("log-box");
-    if (!logBox) return;
-
-    try {
-        const res = await fetch("/api/cat-a/logs");
-        const logs = await res.json();
-
-        logBox.innerText = logs.join("\n");
-        logBox.scrollTop = logBox.scrollHeight;
-    } catch (e) {}
-}, 1500);
-
-logBox.innerText = logs.join("\n\n");
-

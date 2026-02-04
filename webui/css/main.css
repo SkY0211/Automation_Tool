@@ -219,3 +219,25 @@ button {
     gap: 16px;
     margin-top: 20px;
 }
+
+.device-pair {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.device-pair label {
+    font-weight: bold;
+}
+
+.mt-input {
+    padding: 6px 10px;
+    width: 220px;
+}
+
+.small-btn {
+    padding: 6px 14px;
+    font-size: 13px;
+}
