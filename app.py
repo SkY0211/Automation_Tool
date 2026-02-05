@@ -4,6 +4,7 @@ import threading
 import webview
 from flask import Flask, send_from_directory, request, jsonify
 from backend.cat_a_tool.progress_state import progress_data
+from backend.cat_a_tool.utils import update_cat_a_device_state
 
 # =====================================================
 # PATH FIX (IMPORTANT FOR WINDOWS / NUITKA)
@@ -71,7 +72,10 @@ def api_start_cat_a():
 
 @app.route("/api/cat-a/status", methods=["GET"])
 def api_cat_a_status():
+    update_cat_a_device_state(cat_a_state)
     return jsonify(cat_a_state)
+
+
 
 @app.route("/api/cat-a/logs", methods=["GET"])
 def api_cat_a_logs():

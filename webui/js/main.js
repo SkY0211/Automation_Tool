@@ -168,41 +168,40 @@ setInterval(async () => {
     const res = await fetch("/api/cat-a/status");
     const data = await res.json();
 
-    const moUp = !!data.mo_connected;
-    const mtUp = !!data.mt_connected;
+    if (!data.pairs) return;
 
-    pairs.forEach(pair => {
-      //Frontend only deterministic mapping 
-      pair.moConnected = moUp;
-      pair.mtConnected = mtUp;
+    data.pairs.forEach((pair, index) => {
+      const pairId = index + 1;
 
-      const moEl = document.getElementById(`mo-status-${pair.pairId}`);
-      const mtEl = document.getElementById(`mt-status-${pair.pairId}`);
+      const moEl = document.getElementById(`mo-status-${pairId}`);
+      const mtEl = document.getElementById(`mt-status-${pairId}`);
 
       if (!moEl || !mtEl) return;
 
-      moEl.textContent = moUp
-        ? `MO${pair.pairId} Connected`
-        : `MO${pair.pairId} Not Connected`;
+      // MO
+      moEl.textContent = pair.mo_connected
+        ? `MO${pairId} Connected`
+        : `MO${pairId} Not Connected`;
+      moEl.classList.toggle("connected", pair.mo_connected);
 
-      mtEl.textContent = mtUp
-        ? `MT${pair.pairId} Connected`
-        : `MT${pair.pairId} Not Connected`;
-
-      moEl.classList.toggle("connected", moUp);
-      mtEl.classList.toggle("connected", mtUp);
+      // MT
+      mtEl.textContent = pair.mt_connected
+        ? `MT${pairId} Connected`
+        : `MT${pairId} Not Connected`;
+      mtEl.classList.toggle("connected", pair.mt_connected);
     });
-
-    // ✅ Enable Start only when ALL are ready
-    startBtn.disabled = !pairs.every(
-      p => p.saved && p.moConnected && p.mtConnected
-    );
 
   } catch (e) {
     console.error("Status polling failed", e);
   }
 }, 2000);
 
+    // ✅ Enable Start only when ALL are ready
+    startBtn.disabled = !pairs.every(
+      p => p.saved && p.moConnected && p.mtConnected
+    );
+
+    
 
   /* ===============================
      START TEST → BACKEND

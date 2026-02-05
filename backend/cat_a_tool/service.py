@@ -9,21 +9,48 @@ from backend.cat_a_tool.runner import start_cat_a_test
 # =====================================================
 
 cat_a_state = {
-    "state": "IDLE",           # IDLE | RUNNING | COMPLETED | FAILED
+    "state": "IDLE",
     "message": "",
     "progress": 0,
 
-    # Device connection state
+    # Backward compatible (pair 1)
     "mo_connected": False,
     "mt_connected": False,
-
-    # Device serials
     "mo_serial": None,
     "mt_serial": None,
 
-    # Raw detected device list
-    "devices": []
+    # NEW: multi-device support
+    "devices": [],               # raw adb list
+    "pairs": []                  # derived MO–MT pairs
 }
+
+
+def update_pairs_from_devices():
+    """
+    UI helper: derive MO–MT pairs from connected devices
+    Does NOT change automation logic
+    """
+    devices = cat_a_state.get("devices", [])
+
+    cat_a_state["pairs"] = {}
+
+    pair_index = 1
+    for i in range(0, len(devices), 2):
+        mo = devices[i] if i < len(devices) else None
+        mt = devices[i + 1] if i + 1 < len(devices) else None
+
+        cat_a_state["pairs"][pair_index] = {
+            "mo": {
+                "name": f"MO{pair_index}",
+                "connected": bool(mo)
+            },
+            "mt": {
+                "name": f"MT{pair_index}",
+                "connected": bool(mt)
+            }
+        }
+
+        pair_index += 1
 
 
 # =====================================================
@@ -47,6 +74,9 @@ def detect_devices():
         cat_a_state["mo_serial"] = devices[0] if len(devices) >= 1 else None
         cat_a_state["mt_serial"] = devices[1] if len(devices) >= 2 else None
 
+        update_pairs_from_devices()
+
+
         cat_a_state["mo_connected"] = cat_a_state["mo_serial"] is not None
         cat_a_state["mt_connected"] = cat_a_state["mt_serial"] is not None
 
@@ -54,6 +84,12 @@ def detect_devices():
         cat_a_state["mo_connected"] = False
         cat_a_state["mt_connected"] = False
         cat_a_state["message"] = f"ADB error: {e}"
+
+        cat_a_state["devices"] = devices
+
+        cat_a_state["mo_connected"] = len(devices) >= 1
+        cat_a_state["mt_connected"] = len(devices) >= 2
+
 
 
 # =====================================================

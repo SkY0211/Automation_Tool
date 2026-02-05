@@ -327,6 +327,45 @@ def count_connected_devices(custom_logger=None):
         custom_logger.log("Error:", e)
         return 0, None
 
+def update_cat_a_device_state(cat_a_state, custom_logger=None):
+    count, devices = count_connected_devices(custom_logger)
+
+    if not devices:
+        cat_a_state["devices"] = []
+        cat_a_state["pairs"] = []
+        cat_a_state["mo_connected"] = False
+        cat_a_state["mt_connected"] = False
+        return
+
+    cat_a_state["devices"] = devices
+
+    pairs = []
+    pair_index = 1
+
+    for i in range(0, len(devices), 2):
+        mo = devices[i] if i < len(devices) else None
+        mt = devices[i + 1] if i + 1 < len(devices) else None
+
+        pair = {
+            "pair_id": pair_index,
+            "mo_serial": mo,
+            "mt_serial": mt,
+            "mo_connected": mo is not None,
+            "mt_connected": mt is not None,
+        }
+
+        pairs.append(pair)
+        pair_index += 1
+
+    cat_a_state["pairs"] = pairs
+
+    # Backward compatibility (Pair 1)
+    first = pairs[0] if pairs else {}
+    cat_a_state["mo_serial"] = first.get("mo_serial")
+    cat_a_state["mt_serial"] = first.get("mt_serial")
+    cat_a_state["mo_connected"] = first.get("mo_connected", False)
+    cat_a_state["mt_connected"] = first.get("mt_connected", False)
+
 
 def play_alert_sound(frequency=800, duration=400, times=2):
     # Frequency of the alert sound in Hz
