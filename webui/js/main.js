@@ -172,6 +172,7 @@ setInterval(async () => {
     const mtUp = !!data.mt_connected;
 
     pairs.forEach(pair => {
+      //Frontend only deterministic mapping 
       pair.moConnected = moUp;
       pair.mtConnected = mtUp;
 
