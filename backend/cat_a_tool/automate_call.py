@@ -75,7 +75,7 @@ class CallTester:
         self.workbook_file_path = os.path.join(
             self.current_dir_path, f"temp_report_{self.instance_id}.xlsx"
         )
-
+        
         self.workbook = openpyxl.Workbook()
         self.mo_sheet = self.workbook.active
         self.mo_sheet.title = "MO Report"
