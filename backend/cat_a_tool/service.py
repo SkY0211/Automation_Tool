@@ -19,11 +19,12 @@ cat_a_state = {
     "mo_serial": None,
     "mt_serial": None,
 
+    "connection_order": [],      # ← ADD THIS LINE
+
     # NEW: multi-device support
     "devices": [],               # raw adb list
     "pairs": []                  # derived MO–MT pairs
 }
-
 
 def update_pairs_from_devices():
     """
@@ -58,6 +59,10 @@ def update_pairs_from_devices():
 # =====================================================
 
 def detect_devices():
+    """
+    Detect connected devices and maintain connection order
+    First connected device = MO, Second = MT
+    """
     try:
         result = subprocess.run(
             ["adb", "devices"],
@@ -66,31 +71,51 @@ def detect_devices():
         )
 
         lines = result.stdout.strip().split("\n")[1:]
-        devices = [line.split()[0] for line in lines if "device" in line]
+        current_devices = [line.split()[0] for line in lines if "device" in line]
 
+        # 🔧 FIX: Maintain connection order
+        # Initialize connection_order if it doesn't exist
+        if "connection_order" not in cat_a_state:
+            cat_a_state["connection_order"] = []
+        
+        existing_order = cat_a_state["connection_order"]
+        
+        # Remove disconnected devices from order
+        existing_order = [d for d in existing_order if d in current_devices]
+        
+        # Add newly connected devices to the end (preserves connection order)
+        for device in current_devices:
+            if device not in existing_order:
+                existing_order.append(device)
+        
+        cat_a_state["connection_order"] = existing_order
+        
+        # ✅ USE CONNECTION ORDER instead of alphabetical order
+        devices = cat_a_state["connection_order"]
+        
         cat_a_state["devices"] = devices
 
-        # Positional binding (temporary but correct)
+        # ✅ CORRECT: First connected = MO, Second connected = MT
         cat_a_state["mo_serial"] = devices[0] if len(devices) >= 1 else None
         cat_a_state["mt_serial"] = devices[1] if len(devices) >= 2 else None
 
         update_pairs_from_devices()
 
-
         cat_a_state["mo_connected"] = cat_a_state["mo_serial"] is not None
         cat_a_state["mt_connected"] = cat_a_state["mt_serial"] is not None
+        
+        # 🔍 DEBUG LOGGING
+        print(f"🔍 DEVICE DETECTION:")
+        print(f"   Current ADB devices (alphabetical): {current_devices}")
+        print(f"   Connection order (preserved): {devices}")
+        print(f"   MO = {cat_a_state['mo_serial']}")
+        print(f"   MT = {cat_a_state['mt_serial']}")
 
     except Exception as e:
         cat_a_state["mo_connected"] = False
         cat_a_state["mt_connected"] = False
         cat_a_state["message"] = f"ADB error: {e}"
-
-        cat_a_state["devices"] = devices
-
-        cat_a_state["mo_connected"] = len(devices) >= 1
-        cat_a_state["mt_connected"] = len(devices) >= 2
-
-
+        print(f"❌ Device detection error: {e}")
 
 # =====================================================
 # DEVICE MONITOR THREAD (RUN ONCE)
