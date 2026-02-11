@@ -4,8 +4,18 @@ document.addEventListener("DOMContentLoaded", () => {
      GLOBAL UI STATE
   =============================== */
   let pairCount = 0;
-  let mtNumbers = {};
-  let pairs = []; // {pairId, mo, mt, caller, receiver, moConnected, mtConnected, saved}
+  let mtNumbers = {};        // {1: "xxxx", 2: "yyyy"}
+  let pairs = [];            // [{pairId, mo, mt, moConnected, mtConnected, saved}]
+
+  /* ===============================
+     HELPERS
+  =============================== */
+
+  function getRole(index) {
+    const pair = Math.floor(index / 2) + 1;
+    const type = index % 2 === 0 ? "MO" : "MT";
+    return `${type}${pair}`;
+  }
 
   /* ===============================
      HOME ↔ CAT-A NAVIGATION
@@ -84,97 +94,65 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   /* ===============================
-     RENDER PAIRS (WITH DROPDOWNS)
+     RENDER MO–MT PAIRS
   =============================== */
 
   function renderPairs(count) {
     const container = document.getElementById("pair-container");
     container.innerHTML = "";
 
-    pairs = [];
     mtNumbers = {};
+    pairs = [];
 
     for (let i = 1; i <= count; i++) {
       pairs.push({
         pairId: i,
-        mo: "",
-        mt: "",
-        caller: "",      // 🔥 ADDED
-        receiver: "",    // 🔥 ADDED
+        mo: null,
+        mt: null,
         moConnected: false,
         mtConnected: false,
         saved: false
       });
 
       container.innerHTML += `
-        <div class="connection-row" data-pair="${i}">
-          <span class="pair-label">MO–MT Pair ${i}</span>
+        <div class="connection-row">
+          <span class="pair-label">MO–MT Pair ${i}:</span>
 
-          <select class="mo-select">
-            <option value="">Select MO (Caller)</option>
-          </select>
-
-          <select class="mt-select">
-            <option value="">Select MT (Receiver)</option>
-          </select>
-
-          <span id="mo-status-${i}" class="status">MO (Caller) Not Connected</span>
-          <span id="mt-status-${i}" class="status">MT (Receiver) Not Connected</span>
+          <span id="mo-status-${i}" class="status">MO Not Connected</span>
+          <span id="mt-status-${i}" class="status">MT Not Connected</span>
 
           <input type="text"
                  class="mt-input"
+                 data-pair="${i}"
                  placeholder="Enter MT${i} Phone Number"/>
 
-          <button class="primary small-btn">Save</button>
+          <button class="primary small-btn" data-pair="${i}">
+            Save
+          </button>
         </div>
       `;
     }
-
-    startBtn.disabled = true;
   }
 
   /* ===============================
-     SAVE PAIR CONFIG (ENFORCE DIRECTION)
+     SAVE MT NUMBER PER PAIR
   =============================== */
 
   document.body.addEventListener("click", (e) => {
     if (!e.target.classList.contains("small-btn")) return;
 
-    const row = e.target.closest(".connection-row");
-    const pairId = Number(row.dataset.pair);
-    const mo = row.querySelector(".mo-select").value;
-    const mt = row.querySelector(".mt-select").value;
-    const mtInput = row.querySelector(".mt-input").value;
+    const pairId = Number(e.target.dataset.pair);
+    const input = document.querySelector(`input[data-pair="${pairId}"]`);
 
-    if (!mo || !mt) {
-      alert("Please select MO and MT devices");
+    if (!input.value.match(/^[0-9]{8,15}$/)) {
+      alert(`Enter valid MT number for Pair ${pairId}`);
       return;
     }
 
-    // 🔥 CRITICAL VALIDATION
-    if (mo === mt) {
-      alert("MO and MT must be different devices");
-      return;
-    }
+    mtNumbers[pairId] = input.value;
+    pairs[pairId - 1].saved = true;
 
-    if (!mtInput.match(/^[0-9]{8,15}$/)) {
-      alert("Enter valid MT phone number");
-      return;
-    }
-
-    const pair = pairs[pairId - 1];
-
-    pair.mo = mo;
-    pair.mt = mt;
-
-    // 🔥 LOCK DIRECTION (THIS FIXES YOUR ISSUE)
-    pair.caller = mo;      // MO ALWAYS CALLS
-    pair.receiver = mt;    // MT ALWAYS RECEIVES
-
-    pair.saved = true;
-    mtNumbers[pairId] = mtInput;
-
-    alert(`Pair ${pairId} saved`);
+    alert(`MT number saved for Pair ${pairId}`);
 
     if (pairs.every(p => p.saved)) {
       showStep(3);
@@ -182,53 +160,52 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   /* ===============================
-     STATUS POLLING (MANUAL SELECTION)
-  =============================== */
+   STATUS POLLING (PAIR-AWARE, FRONTEND ONLY)
+=============================== */
 
-  setInterval(async () => {
-    try {
-      const res = await fetch("/api/cat-a/status");
-      const data = await res.json();
+setInterval(async () => {
+  try {
+    const res = await fetch("/api/cat-a/status");
+    const data = await res.json();
 
-      const devices = data.devices || [];
+    if (!data.pairs) return;
 
-      // Populate dropdowns ONCE
-      document.querySelectorAll(".mo-select, .mt-select").forEach(sel => {
-        if (sel.options.length > 1) return;
-        devices.forEach(d => {
-          sel.innerHTML += `<option value="${d}">${d}</option>`;
-        });
-      });
+    data.pairs.forEach((pair, index) => {
+      const pairId = index + 1;
 
-      pairs.forEach(pair => {
-        const moEl = document.getElementById(`mo-status-${pair.pairId}`);
-        const mtEl = document.getElementById(`mt-status-${pair.pairId}`);
+      const moEl = document.getElementById(`mo-status-${pairId}`);
+      const mtEl = document.getElementById(`mt-status-${pairId}`);
 
-        pair.moConnected = pair.caller && devices.includes(pair.caller);
-        pair.mtConnected = pair.receiver && devices.includes(pair.receiver);
+      if (!moEl || !mtEl) return;
 
-        moEl.textContent = pair.moConnected
-          ? `MO (Caller) Connected`
-          : `MO (Caller) Not Connected`;
-        moEl.classList.toggle("connected", pair.moConnected);
+      // MO
+      moEl.textContent = pair.mo_connected
+        ? `MO${pairId} Connected`
+        : `MO${pairId} Not Connected`;
+      moEl.classList.toggle("connected", pair.mo_connected);
 
-        mtEl.textContent = pair.mtConnected
-          ? `MT (Receiver) Connected`
-          : `MT (Receiver) Not Connected`;
-        mtEl.classList.toggle("connected", pair.mtConnected);
-      });
+      // MT
+      mtEl.textContent = pair.mt_connected
+        ? `MT${pairId} Connected`
+        : `MT${pairId} Not Connected`;
+      mtEl.classList.toggle("connected", pair.mt_connected);
+    });
 
-      startBtn.disabled = !pairs.every(
-        p => p.saved && p.moConnected && p.mtConnected
-      );
+  } catch (e) {
+    console.error("Status polling failed", e);
+  }
+}, 2000);
 
-    } catch (e) {
-      console.error("Status polling failed", e);
-    }
-  }, 2000);
+    // ✅ Enable Start only when ALL are ready
+    startBtn.disabled = !pairs.every(
+      p => p.saved && p.moConnected && p.mtConnected
+    );
+
+    
 
   /* ===============================
-     START TEST (UNCHANGED)
+     START TEST → BACKEND
+     (NO automation logic changed)
   =============================== */
 
   startBtn.addEventListener("click", async () => {
@@ -247,13 +224,20 @@ document.addEventListener("DOMContentLoaded", () => {
       call_delay: Number(callDelay.value)
     };
 
-    await fetch("/api/cat-a/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    try {
+      const res = await fetch("/api/cat-a/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
 
-    alert("CAT-A Test Started");
+      await res.json();
+      alert("CAT-A Test Started");
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to start CAT-A backend");
+    }
   });
 
   /* ===============================
@@ -267,9 +251,46 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   retestBtn.addEventListener("click", () => {
-    pairs = [];
     mtNumbers = {};
+    pairs = [];
     showStep(1);
   });
+
+  /* ===============================
+     PROGRESS BAR
+  =============================== */
+
+  setInterval(async () => {
+    try {
+      const res = await fetch("/api/cat-a/progress");
+      const data = await res.json();
+
+      const progressBar = document.getElementById("progress-bar");
+      const progressText = document.getElementById("progress-text");
+
+      if (!progressBar || !progressText) return;
+
+      progressBar.value = data.percent || 0;
+      progressText.innerText = `Progress: ${data.percent || 0}%`;
+
+    } catch (e) {}
+  }, 1000);
+
+  /* ===============================
+     LIVE LOG STREAM
+  =============================== */
+
+  setInterval(async () => {
+    const logBox = document.getElementById("log-box");
+    if (!logBox) return;
+
+    try {
+      const res = await fetch("/api/cat-a/logs");
+      const logs = await res.json();
+
+      logBox.innerText = logs.join("\n");
+      logBox.scrollTop = logBox.scrollHeight;
+    } catch (e) {}
+  }, 1500);
 
 });
