@@ -161,6 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* ===============================
    STATUS POLLING (PAIR-AWARE, FRONTEND ONLY)
+   🔧 FIXED: Now properly handles disconnections
 =============================== */
 
 setInterval(async () => {
@@ -168,8 +169,32 @@ setInterval(async () => {
     const res = await fetch("/api/cat-a/status");
     const data = await res.json();
 
-    if (!data.pairs) return;
+    // 🔧 FIX: If no pairs data, hide all status indicators
+    if (!data.pairs || data.pairs.length === 0) {
+      // Clear all status displays when no devices connected
+      for (let pairId = 1; pairId <= pairCount; pairId++) {
+        const moEl = document.getElementById(`mo-status-${pairId}`);
+        const mtEl = document.getElementById(`mt-status-${pairId}`);
+        
+        if (moEl) {
+          moEl.textContent = `MO${pairId} Not Connected`;
+          moEl.classList.remove("connected");
+        }
+        if (mtEl) {
+          mtEl.textContent = `MT${pairId} Not Connected`;
+          mtEl.classList.remove("connected");
+        }
+        
+        // Update internal pairs state
+        if (pairs[pairId - 1]) {
+          pairs[pairId - 1].moConnected = false;
+          pairs[pairId - 1].mtConnected = false;
+        }
+      }
+      return;
+    }
 
+    // 🔧 FIX: Update each pair's status
     data.pairs.forEach((pair, index) => {
       const pairId = index + 1;
 
@@ -178,30 +203,82 @@ setInterval(async () => {
 
       if (!moEl || !mtEl) return;
 
-      // MO
-      moEl.textContent = pair.mo_connected
+      // 🔧 FIX: Use proper boolean checks
+      const moConnected = pair.mo_connected === true;
+      const mtConnected = pair.mt_connected === true;
+
+      // Update MO status
+      moEl.textContent = moConnected
         ? `MO${pairId} Connected`
         : `MO${pairId} Not Connected`;
-      moEl.classList.toggle("connected", pair.mo_connected);
+      moEl.classList.toggle("connected", moConnected);
 
-      // MT
-      mtEl.textContent = pair.mt_connected
+      // Update MT status
+      mtEl.textContent = mtConnected
         ? `MT${pairId} Connected`
         : `MT${pairId} Not Connected`;
-      mtEl.classList.toggle("connected", pair.mt_connected);
+      mtEl.classList.toggle("connected", mtConnected);
+      
+      // 🔧 FIX: Update internal pairs state
+      if (pairs[pairId - 1]) {
+        pairs[pairId - 1].moConnected = moConnected;
+        pairs[pairId - 1].mtConnected = mtConnected;
+      }
     });
+
+    // 🔧 FIX: Clear status for pairs that no longer exist
+    for (let pairId = data.pairs.length + 1; pairId <= pairCount; pairId++) {
+      const moEl = document.getElementById(`mo-status-${pairId}`);
+      const mtEl = document.getElementById(`mt-status-${pairId}`);
+      
+      if (moEl) {
+        moEl.textContent = `MO${pairId} Not Connected`;
+        moEl.classList.remove("connected");
+      }
+      if (mtEl) {
+        mtEl.textContent = `MT${pairId} Not Connected`;
+        mtEl.classList.remove("connected");
+      }
+      
+      if (pairs[pairId - 1]) {
+        pairs[pairId - 1].moConnected = false;
+        pairs[pairId - 1].mtConnected = false;
+      }
+    }
 
   } catch (e) {
     console.error("Status polling failed", e);
+    // 🔧 FIX: On error, mark all as disconnected
+    for (let pairId = 1; pairId <= pairCount; pairId++) {
+      const moEl = document.getElementById(`mo-status-${pairId}`);
+      const mtEl = document.getElementById(`mt-status-${pairId}`);
+      
+      if (moEl) {
+        moEl.textContent = `MO${pairId} Not Connected`;
+        moEl.classList.remove("connected");
+      }
+      if (mtEl) {
+        mtEl.textContent = `MT${pairId} Not Connected`;
+        mtEl.classList.remove("connected");
+      }
+      
+      if (pairs[pairId - 1]) {
+        pairs[pairId - 1].moConnected = false;
+        pairs[pairId - 1].mtConnected = false;
+      }
+    }
   }
 }, 2000);
 
-    // ✅ Enable Start only when ALL are ready
+// 🔧 FIX: Update Start button enable logic
+setInterval(() => {
+  const startBtn = document.querySelector(".success");
+  if (startBtn && pairs.length > 0) {
     startBtn.disabled = !pairs.every(
       p => p.saved && p.moConnected && p.mtConnected
     );
-
-    
+  }
+}, 500);
 
   /* ===============================
      START TEST → BACKEND

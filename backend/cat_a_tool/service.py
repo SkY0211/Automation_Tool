@@ -19,7 +19,7 @@ cat_a_state = {
     "mo_serial": None,
     "mt_serial": None,
 
-    "connection_order": [],      # ← ADD THIS LINE
+    "connection_order": [],      # Connection order tracking
 
     # NEW: multi-device support
     "devices": [],               # raw adb list
@@ -33,25 +33,39 @@ def update_pairs_from_devices():
     """
     devices = cat_a_state.get("devices", [])
 
-    cat_a_state["pairs"] = {}
+    # 🔧 FIX: If no devices, return empty pairs list
+    if not devices:
+        cat_a_state["pairs"] = []
+        return
 
+    pairs = []
     pair_index = 1
+    
     for i in range(0, len(devices), 2):
         mo = devices[i] if i < len(devices) else None
         mt = devices[i + 1] if i + 1 < len(devices) else None
 
-        cat_a_state["pairs"][pair_index] = {
+        pair = {
+            "pair_id": pair_index,
             "mo": {
                 "name": f"MO{pair_index}",
+                "serial": mo,
                 "connected": bool(mo)
             },
             "mt": {
                 "name": f"MT{pair_index}",
+                "serial": mt,
                 "connected": bool(mt)
-            }
+            },
+            # 🔧 FIX: Add flattened connection flags for frontend
+            "mo_connected": bool(mo),
+            "mt_connected": bool(mt)
         }
 
+        pairs.append(pair)
         pair_index += 1
+
+    cat_a_state["pairs"] = pairs
 
 
 # =====================================================
@@ -73,14 +87,26 @@ def detect_devices():
         lines = result.stdout.strip().split("\n")[1:]
         current_devices = [line.split()[0] for line in lines if "device" in line]
 
-        # 🔧 FIX: Maintain connection order
-        # Initialize connection_order if it doesn't exist
+        # 🔧 FIX: Initialize connection_order if it doesn't exist
         if "connection_order" not in cat_a_state:
             cat_a_state["connection_order"] = []
         
         existing_order = cat_a_state["connection_order"]
         
-        # Remove disconnected devices from order
+        # 🔧 FIX: If NO devices connected, CLEAR everything
+        if not current_devices:
+            cat_a_state["connection_order"] = []
+            cat_a_state["devices"] = []
+            cat_a_state["mo_serial"] = None
+            cat_a_state["mt_serial"] = None
+            cat_a_state["mo_connected"] = False
+            cat_a_state["mt_connected"] = False
+            cat_a_state["pairs"] = []
+            
+            print("🔍 DEVICE DETECTION: NO DEVICES CONNECTED - STATE CLEARED")
+            return
+        
+        # 🔧 FIX: Remove disconnected devices from order
         existing_order = [d for d in existing_order if d in current_devices]
         
         # Add newly connected devices to the end (preserves connection order)
@@ -99,21 +125,29 @@ def detect_devices():
         cat_a_state["mo_serial"] = devices[0] if len(devices) >= 1 else None
         cat_a_state["mt_serial"] = devices[1] if len(devices) >= 2 else None
 
+        # 🔧 FIX: Update pairs BEFORE setting connection flags
         update_pairs_from_devices()
 
+        # 🔧 FIX: Explicitly set connection status based on serial presence
         cat_a_state["mo_connected"] = cat_a_state["mo_serial"] is not None
         cat_a_state["mt_connected"] = cat_a_state["mt_serial"] is not None
         
         # 🔍 DEBUG LOGGING
         print(f"🔍 DEVICE DETECTION:")
-        print(f"   Current ADB devices (alphabetical): {current_devices}")
-        print(f"   Connection order (preserved): {devices}")
-        print(f"   MO = {cat_a_state['mo_serial']}")
-        print(f"   MT = {cat_a_state['mt_serial']}")
+        print(f"   Current ADB devices: {current_devices}")
+        print(f"   Connection order: {devices}")
+        print(f"   MO = {cat_a_state['mo_serial']} (Connected: {cat_a_state['mo_connected']})")
+        print(f"   MT = {cat_a_state['mt_serial']} (Connected: {cat_a_state['mt_connected']})")
+        print(f"   Pairs: {cat_a_state['pairs']}")
 
     except Exception as e:
+        # 🔧 FIX: On error, explicitly clear all connection states
         cat_a_state["mo_connected"] = False
         cat_a_state["mt_connected"] = False
+        cat_a_state["mo_serial"] = None
+        cat_a_state["mt_serial"] = None
+        cat_a_state["devices"] = []
+        cat_a_state["pairs"] = []
         cat_a_state["message"] = f"ADB error: {e}"
         print(f"❌ Device detection error: {e}")
 
@@ -141,7 +175,7 @@ def start_cat_a_service(config: dict):
 
     def _run():
         try:
-            print(" CAT-A SERVICE STARTED")
+            print("✅ CAT-A SERVICE STARTED")
             print("CONFIG FROM UI:", config)
 
             # ===============================
@@ -151,19 +185,19 @@ def start_cat_a_service(config: dict):
             if not cat_a_state["mo_connected"]:
                 cat_a_state["state"] = "FAILED"
                 cat_a_state["message"] = "MO device not connected"
-                print(" MO NOT CONNECTED")
+                print("❌ MO NOT CONNECTED")
                 return
 
             if not cat_a_state["mt_connected"]:
                 cat_a_state["state"] = "FAILED"
                 cat_a_state["message"] = "MT device not connected"
-                print(" MT NOT CONNECTED")
+                print("❌ MT NOT CONNECTED")
                 return
 
             if not config.get("mt_number"):
                 cat_a_state["state"] = "FAILED"
                 cat_a_state["message"] = "MT phone number not saved"
-                print(" MT NUMBER MISSING")
+                print("❌ MT NUMBER MISSING")
                 return
 
             # ===============================
@@ -201,18 +235,18 @@ def start_cat_a_service(config: dict):
             cat_a_state["message"] = "CAT-A execution started"
             cat_a_state["progress"] = 0
 
-            #  ACTUAL AUTOMATION
+            # 🔥 ACTUAL AUTOMATION
             start_cat_a_test(mapped_config)
 
             cat_a_state["state"] = "COMPLETED"
             cat_a_state["message"] = "CAT-A execution completed"
             cat_a_state["progress"] = 100
 
-            print(" CAT-A EXECUTION FINISHED")
+            print("✅ CAT-A EXECUTION FINISHED")
 
         except Exception as e:
             cat_a_state["state"] = "FAILED"
             cat_a_state["message"] = str(e)
-            print(" CAT-A ERROR:", e)
+            print("❌ CAT-A ERROR:", e)
 
     threading.Thread(target=_run, daemon=True).start()
