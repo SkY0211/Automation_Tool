@@ -4,13 +4,6 @@ import threading
 import webview
 from flask import Flask, send_from_directory, request, jsonify
 from backend.cat_a_tool.progress_state import progress_data
-from backend.cat_a_tool.utils import update_cat_a_device_state
-from backend.cat_a_tool.service import (
-    pause_test,
-    resume_test,
-    stop_test,
-    clear_disconnect_alert
-)
 
 # =====================================================
 # PATH FIX (IMPORTANT FOR WINDOWS / NUITKA)
@@ -27,9 +20,12 @@ if BASE_DIR not in sys.path:
 from backend.cat_a_tool.service import (
     start_cat_a_service,
     start_device_monitor,
-    cat_a_state
+    cat_a_state,
+    pause_test,
+    resume_test,
+    stop_test,
+    clear_disconnect_alert
 )
-
 
 from backend.cat_a_tool.logger import get_ui_logs
 
@@ -72,16 +68,35 @@ def index():
 @app.route("/api/cat-a/start", methods=["POST"])
 def api_start_cat_a():
     config = request.json
+    print("=" * 60)
     print("CAT-A START API HIT:", config)
+    print("=" * 60)
     start_cat_a_service(config)
     return jsonify({"status": "started"})
 
 @app.route("/api/cat-a/status", methods=["GET"])
 def api_cat_a_status():
-    update_cat_a_device_state(cat_a_state)
-    return jsonify(cat_a_state)
-
-
+    # ✅ CRITICAL FIX: DO NOT call update_cat_a_device_state()
+    # It uses alphabetical order which breaks connection order!
+    # The device monitor in service.py already updates cat_a_state correctly
+    
+    return jsonify({
+        "state": cat_a_state.get("state", "IDLE"),
+        "message": cat_a_state.get("message", ""),
+        "progress": cat_a_state.get("progress", 0),
+        "mo_connected": cat_a_state.get("mo_connected", False),
+        "mt_connected": cat_a_state.get("mt_connected", False),
+        "mo_serial": cat_a_state.get("mo_serial"),
+        "mt_serial": cat_a_state.get("mt_serial"),
+        "pairs": cat_a_state.get("pairs", []),
+        "devices": cat_a_state.get("devices", []),
+        "paused": cat_a_state.get("paused", False),
+        "test_running": cat_a_state.get("test_running", False),
+        "device_disconnected": cat_a_state.get("device_disconnected", False),
+        "disconnected_device": cat_a_state.get("disconnected_device"),
+        "current_iteration": cat_a_state.get("current_iteration", 0),
+        "total_iterations": cat_a_state.get("total_iterations", 0)
+    })
 
 @app.route("/api/cat-a/logs", methods=["GET"])
 def api_cat_a_logs():
@@ -96,52 +111,13 @@ def api_cat_a_devices():
         "mt_serial": cat_a_state["mt_serial"],
     })
 
-
-
 @app.route("/api/cat-a/progress")
 def cat_a_progress():
-    from backend.cat_a_tool.progress_state import progress_data
     return jsonify(progress_data)
 
-
-
 # =====================================================
-# FLASK RUNNER
+# PAUSE/RESUME/STOP ENDPOINTS
 # =====================================================
-
-def start_flask():
-    app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=False,
-        use_reloader=False
-    )
-
-# =====================================================
-# DESKTOP APP ENTRY POINT
-# =====================================================
-
-if __name__ == "__main__":
-
-    # 🔥 START DEVICE MONITOR ONCE
-    start_device_monitor()
-
-    # 🔥 START FLASK IN BACKGROUND
-    flask_thread = threading.Thread(target=start_flask, daemon=True)
-    flask_thread.start()
-
-    # 🔥 START DESKTOP WINDOW
-    webview.create_window(
-        title="Automation Tool – Integration Dashboard",
-        url="http://127.0.0.1:5000",
-        width=1200,
-        height=750,
-        resizable=True
-    )
-
-    webview.start()
-
-
 
 @app.route('/api/cat-a/pause', methods=['POST'])
 def pause_cat_a_test():
@@ -160,5 +136,55 @@ def stop_cat_a_test():
 
 @app.route('/api/cat-a/clear-disconnect', methods=['POST'])
 def clear_disconnect():
-    result = clear_disconnect_alert()
-    return jsonify(result), 200
+    """Clear device disconnection alert"""
+    try:
+        result = clear_disconnect_alert()
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+# =====================================================
+# FLASK RUNNER
+# =====================================================
+
+def start_flask():
+    app.run(
+        host="127.0.0.1",
+        port=5000,
+        debug=False,
+        use_reloader=False
+    )
+
+# =====================================================
+# DESKTOP APP ENTRY POINT
+# =====================================================
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("🚀 AUTOMATION TOOL STARTING")
+    print("=" * 60)
+
+    # 🔥 START DEVICE MONITOR ONCE
+    start_device_monitor()
+
+    # 🔥 START FLASK IN BACKGROUND
+    flask_thread = threading.Thread(target=start_flask, daemon=True)
+    flask_thread.start()
+
+    print("✅ Flask server started on http://127.0.0.1:5000")
+    print("✅ Device monitor started")
+    print("=" * 60)
+
+    # 🔥 START DESKTOP WINDOW
+    webview.create_window(
+        title="Automation Tool – Integration Dashboard",
+        url="http://127.0.0.1:5000",
+        width=1200,
+        height=750,
+        resizable=True
+    )
+
+    webview.start()
