@@ -133,9 +133,14 @@ html, body {
 .status {
     padding: 6px 12px;
     border-radius: 4px;
-    background: #00b050;
+    background: #e74c3c;
     color: white;
     font-weight: bold;
+    font-size: 13px;
+}
+
+.status.connected {
+    background: #00b050;
 }
 
 /* EXECUTION */
@@ -183,10 +188,27 @@ html, body {
 
 /* BUTTONS */
 button {
-    padding: 6px 14px;
+    padding: 8px 16px;
     border: none;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 14px;
+    border-radius: 4px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+button:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .small-btn {
@@ -201,6 +223,7 @@ button {
 
 .secondary {
     background: #e0e0e0;
+    color: #333;
 }
 
 .info {
@@ -213,11 +236,24 @@ button {
     color: white;
 }
 
+/* NEW: Warning button (for Pause) */
+.warning {
+    background: #ff9800;
+    color: white;
+}
+
+/* NEW: Danger button (for Stop) */
+.danger {
+    background: #e74c3c;
+    color: white;
+}
+
 /* ACTION ROW */
 .action-row {
     display: flex;
     gap: 16px;
     margin-top: 20px;
+    justify-content: center;
 }
 
 .device-pair {
@@ -237,7 +273,95 @@ button {
     width: 220px;
 }
 
-.small-btn {
-    padding: 6px 14px;
-    font-size: 13px;
+/* NEW: MODAL STYLES */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 500px;
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #fff3cd;
+    border-radius: 8px 8px 0 0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #856404;
+}
+
+.modal-body {
+    padding: 24px;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.modal-body p {
+    margin: 12px 0;
+}
+
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.modal-footer button {
+    min-width: 80px;
+}
+
+/* PROGRESS BAR */
+progress {
+    width: 100%;
+    height: 24px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+progress::-webkit-progress-bar {
+    background-color: #e0e0e0;
+    border-radius: 4px;
+}
+
+progress::-webkit-progress-value {
+    background: linear-gradient(to right, #0078d4, #00b050);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+progress::-moz-progress-bar {
+    background: linear-gradient(to right, #0078d4, #00b050);
+    border-radius: 4px;
 }

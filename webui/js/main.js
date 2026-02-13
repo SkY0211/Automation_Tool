@@ -6,6 +6,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let pairCount = 0;
   let mtNumbers = {};        // {1: "xxxx", 2: "yyyy"}
   let pairs = [];            // [{pairId, mo, mt, moConnected, mtConnected, saved}]
+  let testRunning = false;
+  let testPaused = false;
 
   /* ===============================
      HELPERS
@@ -53,9 +55,20 @@ document.addEventListener("DOMContentLoaded", () => {
   const callDelay = document.getElementById("call-delay");
 
   const nextBtn = document.getElementById("next-to-step-2");
-  const startBtn = document.querySelector(".success");
-  const resetBtn = document.querySelector(".secondary");
-  const retestBtn = document.querySelector(".info");
+  const startBtn = document.getElementById("start-btn");
+  const resetBtn = document.getElementById("reset-btn");
+  const retestBtn = document.getElementById("retest-btn");
+
+  // NEW: Control buttons
+  const controlButtons = document.getElementById("control-buttons");
+  const pauseBtn = document.getElementById("pause-btn");
+  const resumeBtn = document.getElementById("resume-btn");
+  const stopBtn = document.getElementById("stop-btn");
+
+  // NEW: Disconnect modal
+  const disconnectModal = document.getElementById("disconnect-modal");
+  const closeDisconnectModal = document.getElementById("close-disconnect-modal");
+  const disconnectMessage = document.getElementById("disconnect-message");
 
   /* ===============================
      STEP SWITCHING
@@ -272,8 +285,7 @@ setInterval(async () => {
 
 // 🔧 FIX: Update Start button enable logic
 setInterval(() => {
-  const startBtn = document.querySelector(".success");
-  if (startBtn && pairs.length > 0) {
+  if (startBtn && pairs.length > 0 && !testRunning) {
     startBtn.disabled = !pairs.every(
       p => p.saved && p.moConnected && p.mtConnected
     );
@@ -281,8 +293,49 @@ setInterval(() => {
 }, 500);
 
   /* ===============================
+     NEW: DEVICE DISCONNECTION MONITORING
+  =============================== */
+  
+  setInterval(async () => {
+    if (!testRunning) return;
+    
+    try {
+      const res = await fetch("/api/cat-a/status");
+      const data = await res.json();
+      
+      // Check if device disconnected during test
+      if (data.device_disconnected === true) {
+        const device = data.disconnected_device || "Unknown";
+        
+        // Show disconnect modal
+        disconnectMessage.textContent = `${device} device has been disconnected during the test.`;
+        disconnectModal.classList.remove("hidden");
+        
+        // Hide control buttons
+        controlButtons.classList.add("hidden");
+        
+        // Reset test state
+        testRunning = false;
+        testPaused = false;
+        
+        // Clear the disconnect alert on backend
+        await fetch("/api/cat-a/clear-disconnect", { method: "POST" });
+      }
+    } catch (e) {
+      console.error("Disconnect monitoring failed", e);
+    }
+  }, 2000);
+
+  /* ===============================
+     NEW: CLOSE DISCONNECT MODAL
+  =============================== */
+  
+  closeDisconnectModal.addEventListener("click", () => {
+    disconnectModal.classList.add("hidden");
+  });
+
+  /* ===============================
      START TEST → BACKEND
-     (NO automation logic changed)
   =============================== */
 
   startBtn.addEventListener("click", async () => {
@@ -309,11 +362,110 @@ setInterval(() => {
       });
 
       await res.json();
+      
+      // Update UI state
+      testRunning = true;
+      testPaused = false;
+      
+      // Hide Start/Reset/Retest buttons
+      startBtn.classList.add("hidden");
+      resetBtn.classList.add("hidden");
+      retestBtn.classList.add("hidden");
+      
+      // Show control buttons
+      controlButtons.classList.remove("hidden");
+      
+      // Initially show pause, hide resume
+      pauseBtn.classList.remove("hidden");
+      resumeBtn.classList.add("hidden");
+      
       alert("CAT-A Test Started");
 
     } catch (err) {
       console.error(err);
       alert("Failed to start CAT-A backend");
+    }
+  });
+
+  /* ===============================
+     NEW: PAUSE BUTTON
+  =============================== */
+  
+  pauseBtn.addEventListener("click", async () => {
+    try {
+      const res = await fetch("/api/cat-a/pause", { method: "POST" });
+      const data = await res.json();
+      
+      if (data.status === "success") {
+        testPaused = true;
+        pauseBtn.classList.add("hidden");
+        resumeBtn.classList.remove("hidden");
+        alert("Test paused");
+      } else {
+        alert(data.message || "Failed to pause test");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to pause test");
+    }
+  });
+
+  /* ===============================
+     NEW: RESUME BUTTON
+  =============================== */
+  
+  resumeBtn.addEventListener("click", async () => {
+    try {
+      const res = await fetch("/api/cat-a/resume", { method: "POST" });
+      const data = await res.json();
+      
+      if (data.status === "success") {
+        testPaused = false;
+        resumeBtn.classList.add("hidden");
+        pauseBtn.classList.remove("hidden");
+        alert("Test resumed");
+      } else {
+        alert(data.message || "Failed to resume test");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to resume test");
+    }
+  });
+
+  /* ===============================
+     NEW: STOP BUTTON
+  =============================== */
+  
+  stopBtn.addEventListener("click", async () => {
+    if (!confirm("Are you sure you want to stop the test?")) {
+      return;
+    }
+    
+    try {
+      const res = await fetch("/api/cat-a/stop", { method: "POST" });
+      const data = await res.json();
+      
+      if (data.status === "success") {
+        // Reset UI state
+        testRunning = false;
+        testPaused = false;
+        
+        // Show Start/Reset/Retest buttons
+        startBtn.classList.remove("hidden");
+        resetBtn.classList.remove("hidden");
+        retestBtn.classList.remove("hidden");
+        
+        // Hide control buttons
+        controlButtons.classList.add("hidden");
+        
+        alert("Test stopped");
+      } else {
+        alert(data.message || "Failed to stop test");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to stop test");
     }
   });
 
@@ -330,11 +482,22 @@ setInterval(() => {
   retestBtn.addEventListener("click", () => {
     mtNumbers = {};
     pairs = [];
+    testRunning = false;
+    testPaused = false;
+    
+    // Show Start/Reset/Retest buttons
+    startBtn.classList.remove("hidden");
+    resetBtn.classList.remove("hidden");
+    retestBtn.classList.remove("hidden");
+    
+    // Hide control buttons
+    controlButtons.classList.add("hidden");
+    
     showStep(1);
   });
 
   /* ===============================
-     PROGRESS BAR
+     PROGRESS BAR + AUTO UI RESET ON COMPLETION
   =============================== */
 
   setInterval(async () => {
@@ -349,6 +512,30 @@ setInterval(() => {
 
       progressBar.value = data.percent || 0;
       progressText.innerText = `Progress: ${data.percent || 0}%`;
+      
+      // Check if test completed or failed
+      const statusRes = await fetch("/api/cat-a/status");
+      const statusData = await statusRes.json();
+      
+      if (testRunning && (statusData.state === "COMPLETED" || statusData.state === "FAILED" || statusData.state === "STOPPED")) {
+        // Reset UI state
+        testRunning = false;
+        testPaused = false;
+        
+        // Show Start/Reset/Retest buttons
+        startBtn.classList.remove("hidden");
+        resetBtn.classList.remove("hidden");
+        retestBtn.classList.remove("hidden");
+        
+        // Hide control buttons
+        controlButtons.classList.add("hidden");
+        
+        if (statusData.state === "COMPLETED") {
+          alert("Test completed successfully!");
+        } else if (statusData.state === "FAILED") {
+          alert("Test failed: " + (statusData.message || "Unknown error"));
+        }
+      }
 
     } catch (e) {}
   }, 1000);
