@@ -110,9 +110,16 @@
                             <progress id="progress-bar" value="0" max="100"></progress>
 
                             <div class="action-row">
-                                <button class="secondary">Reset</button>
-                                <button class="info">Retest</button>
-                                <button class="success">Start Test</button>
+                                <button class="secondary" id="reset-btn">Reset</button>
+                                <button class="info" id="retest-btn">Retest</button>
+                                <button class="success" id="start-btn">Start Test</button>
+                            </div>
+
+                            <!-- NEW: Pause/Resume/Stop buttons (initially hidden) -->
+                            <div class="action-row hidden" id="control-buttons">
+                                <button class="warning" id="pause-btn">⏸️ Pause</button>
+                                <button class="success" id="resume-btn">▶️ Resume</button>
+                                <button class="danger" id="stop-btn">⏹️ Stop</button>
                             </div>
                         </div>
 
@@ -129,6 +136,22 @@
         </div>
     </div>
 
+</div>
+
+<!-- NEW: Device Disconnection Popup Modal -->
+<div id="disconnect-modal" class="modal hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>⚠️ Device Disconnected</h2>
+        </div>
+        <div class="modal-body">
+            <p id="disconnect-message">A device has been disconnected during the test.</p>
+            <p>The test has been stopped. Please reconnect the device and try again.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="primary" id="close-disconnect-modal">OK</button>
+        </div>
+    </div>
 </div>
 
 <script src="js/main.js"></script>

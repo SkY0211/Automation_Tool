@@ -5,6 +5,12 @@ import webview
 from flask import Flask, send_from_directory, request, jsonify
 from backend.cat_a_tool.progress_state import progress_data
 from backend.cat_a_tool.utils import update_cat_a_device_state
+from backend.cat_a_tool.service import (
+    pause_test,
+    resume_test,
+    stop_test,
+    clear_disconnect_alert
+)
 
 # =====================================================
 # PATH FIX (IMPORTANT FOR WINDOWS / NUITKA)
@@ -134,3 +140,25 @@ if __name__ == "__main__":
     )
 
     webview.start()
+
+
+
+@app.route('/api/cat-a/pause', methods=['POST'])
+def pause_cat_a_test():
+    result = pause_test()
+    return jsonify(result), 200 if result["status"] == "success" else 400
+
+@app.route('/api/cat-a/resume', methods=['POST'])
+def resume_cat_a_test():
+    result = resume_test()
+    return jsonify(result), 200 if result["status"] == "success" else 400
+
+@app.route('/api/cat-a/stop', methods=['POST'])
+def stop_cat_a_test():
+    result = stop_test()
+    return jsonify(result), 200 if result["status"] == "success" else 400
+
+@app.route('/api/cat-a/clear-disconnect', methods=['POST'])
+def clear_disconnect():
+    result = clear_disconnect_alert()
+    return jsonify(result), 200

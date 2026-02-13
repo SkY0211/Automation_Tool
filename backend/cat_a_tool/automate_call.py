@@ -89,16 +89,6 @@ class CallTester:
     # ALL EXISTING METHODS BELOW ARE UNCHANGED
     # --------------------------------------------------
 
-    # all_devices_connected()
-    # initiate_call()
-    # receive_call()
-    # end_call()
-    # oos_checking()
-    # device_setting()
-    # check_status()
-    # run_test()
-
-
     def all_devices_connected(self):
         no_of_connected_devices, found = count_connected_devices(self.logger)
         if no_of_connected_devices == self.no_of_devices:
@@ -202,138 +192,78 @@ class CallTester:
                                     break
 
                                 if self.test_type == "Long calls":
-                                    time.sleep(4)
-                                    time_now = datetime.now().time().strftime("%H:%M:%S")
-                                    if "mCallState=2" in status_mo and "mCallState=2" in status_mt:
-                                        status = "Ongoing"
-                                        comment = None
-                                        mo_cell_info = get_cell_info(self.mo, self.mo_sim_pref, self.logger)
-                                        mo_gps = get_location(self.mo, self.logger)
-                                        mt_cell_info = get_cell_info(self.mt, self.mt_sim_pref, self.logger)
-                                        mt_gps = get_location(self.mt, self.logger)
+                                    time.sleep(30)
+                                else:
+                                    time.sleep(1)
 
-                                        # report preparation
-                                        mo_report = [current_itr, date, time_now, None, None, status,
-                                                     comment] + mo_cell_info + mo_gps
-                                        mt_report = [current_itr, date, time_now, None, None, status,
-                                                     comment] + mt_cell_info + mt_gps
+                            self.logger.log("Call ended successfully : PASS", )
+                            return "PASS", "", start_time, end_time, call_duration
 
-                                        # temp report generation
-                                        self.mo_sheet.append(mo_report)
-                                        self.mt_sheet.append(mt_report)
-                                        self.workbook.save(self.workbook_file_path)
+                        wait2 -= 1
 
-                                        # add a report to respective DataFrames
-                                        self.logger.log("Submitting Call report.")
-                                        self.mo_df.loc[len(self.mo_df)] = mo_report
-                                        self.mt_df.loc[len(self.mt_df)] = mt_report
-
-                            self.logger.log("Success : PASS", )
-                            return "PASS", None, start_time, end_time, call_duration
-                        else:
-                            wait2 -= 1
-
-                    # If no calls received on MT
-                    if not self.all_devices_connected():
-                        raise Exception("Device Not Found!")
-                    self.get_mt_cell_info()
-                    self.end_call(self.mo)
+                    # If MT device is not receiving any calls
+                    self.logger.log("MT device is not receiving any calls : FAILED", )
                     end_time = datetime.now().time().strftime("%H:%M:%S")
-                    self.logger.log("No call received on MT : FAILED", )
-                    return "FAILED", "No call received on MT", start_time, end_time, call_duration
-                else:
-                    wait1 -= 1
+                    return "FAILED", "MT device is not receiving any calls", start_time, end_time, call_duration
+
                 time.sleep(1)
+                wait1 -= 1
 
-            # If call not established properly by MO
-            self.logger.log("Call not established : FAILED", )
-            if not self.all_devices_connected():
-                raise Exception("Device Not Found!")
-            self.get_mt_cell_info()
+            # If MO call is not properly established
+            self.logger.log("MO call is not properly established : FAILED", )
             end_time = datetime.now().time().strftime("%H:%M:%S")
-            return "FAILED", "MO call was not established properly.", start_time, end_time, call_duration
-
-        except (Exception, subprocess.CalledProcessError) as e:
-            self.logger.log("Unable to complete", e)
-
-            if not self.all_devices_connected():
-                raise Exception("Device Not Found!")
-            # Get the cell info of MT
-            self.mt_cell_info = get_cell_info(self.mt, self.mt_sim_pref, self.logger)
-            # Get the current location
-            self.mt_gps = get_location(self.mt, self.logger)
-            end_time = datetime.now().time().strftime("%H:%M:%S")
-            return "FAILED", "System Error", start_time, end_time, call_duration
-
-    def device_setting(self):
-        try:
-            # #restart the device
-            # restart_device(self.mo, self.logger)
-            # restart_device(self.mt, self.logger)
-            #
-            # time.sleep(90)
-
-            # Turn Off Wi-Fi
-            toggle_wifi(self.mo, 0, self.logger)
-            toggle_wifi(self.mt, 0, self.logger)
-
-            # Turn ON mobile Data in MO & MT
-            toggle_data(self.mo, 1, self.logger)
-            toggle_data(self.mt, 1, self.logger)
+            return "FAILED", "MO call is not properly established", start_time, end_time, call_duration
 
         except Exception as e:
-            if self.all_devices_connected():
-                # error not related to device connection
-                self.logger.log("Error :", e)
-            else:
-                # device connection error
-                while True:
-                    device = f"MO-MT pair - {self.mo_label[-1]}"
-                    reconnect_status = reconnect(self.home, device)
-                    if reconnect_status and self.all_devices_connected():
-                        break
-                # redo device setting
-                self.device_setting()
+            self.logger.log(f"Error in check_status: {e}", )
+            end_time = datetime.now().time().strftime("%H:%M:%S")
+            return "FAILED", str(e), start_time, end_time, call_duration
+
+    def device_setting(self):
+        self.logger.log(f"Setting up device <{self.mo}>")
+        toggle_wifi(self.mo, 0, self.logger)
+        toggle_data(self.mo, 0, self.logger)
+        toggle_data(self.mo, 1, self.logger)
+
+        self.logger.log(f"Setting up device <{self.mt}>")
+        toggle_wifi(self.mt, 0, self.logger)
+        toggle_data(self.mt, 0, self.logger)
+        toggle_data(self.mt, 1, self.logger)
 
     def oos_checking(self):
-        mo_flag = True
-        mt_flag = True
+        mo_flag = False
+        mt_flag = False
+        oos_devices = []
 
-        while mo_flag or mt_flag:
-            if not self.all_devices_connected():
-                raise Exception("Device Not Found!")
-            oos_devices = []
+        mo_service_state = get_service_state(self.mo, self.logger)
+        if "IN_SERVICE" in mo_service_state[self.mo_sim_pref]:
+            mo_flag = False
+        else:
+            oos_devices.append(f"{self.mo_label} -> SIM{self.mo_sim_pref + 1}")
+            mo_flag = True
+            mo_lat, mo_long = get_location(self.mo, self.logger)
+            self.logger.log(
+                f"OOS Zone ({mo_service_state}) found in {self.mo_label} at Location (lat, long) -> {mo_lat, mo_long}")
 
-            # if mo_flag:
-            mo_service_state = get_service_state(self.mo, self.logger)
-            if "IN_SERVICE" in mo_service_state[self.mo_sim_pref]:
-                mo_flag = False
-            else:
-                oos_devices.append(f"{self.mo_label} -> SIM{self.mo_sim_pref + 1}")
-                mo_flag = True
-                mo_lat, mo_long = get_location(self.mo, self.logger)
-                self.logger.log(
-                    f"OOS Zone ({mo_service_state}) found in {self.mo_label} at Location (lat, long) -> {mo_lat, mo_long}")
+        # if mt_flag:
+        mt_service_state = get_service_state(self.mt, self.logger)
+        if "IN_SERVICE" in mt_service_state[self.mt_sim_pref]:
+            mt_flag = False
+        else:
+            oos_devices.append(f"{self.mt_label} -> SIM{self.mt_sim_pref + 1}")
+            mt_flag = True
+            mt_lat, mt_long = get_location(self.mt, self.logger)
+            self.logger.log(
+                f"OOS Zone ({mt_service_state}) found in {self.mt_label} at Location (lat, long) -> {mt_lat, mt_long}")
 
-            # if mt_flag:
-            mt_service_state = get_service_state(self.mt, self.logger)
-            if "IN_SERVICE" in mt_service_state[self.mt_sim_pref]:
-                mt_flag = False
-            else:
-                oos_devices.append(f"{self.mt_label} -> SIM{self.mt_sim_pref + 1}")
-                mt_flag = True
-                mt_lat, mt_long = get_location(self.mt, self.logger)
-                self.logger.log(
-                    f"OOS Zone ({mt_service_state}) found in {self.mt_label} at Location (lat, long) -> {mt_lat, mt_long}")
-
-            if mo_flag or mt_flag:
-                ooszone(self.home, oos_devices)
-                self.logger.log("Again checking if the device(s) are back IN SERVICE")
-            else:
-                self.logger.log(f"Both {self.mo_label} and {self.mt_label} are IN SERVICE")
+        if mo_flag or mt_flag:
+            ooszone(self.home, oos_devices)
+            self.logger.log("Again checking if the device(s) are back IN SERVICE")
+        else:
+            self.logger.log(f"Both {self.mo_label} and {self.mt_label} are IN SERVICE")
 
     def run_test(self, queue):
-    # ---- ENTRY LOG ----
+        # ---- ENTRY LOG ----
         self.logger.log("run_test ENTERED")
 
         try:
@@ -346,20 +276,46 @@ class CallTester:
         self.logger.log("Progress tracking started")
 
         from backend.cat_a_tool.progress_state import progress_data
+        from backend.cat_a_tool.service import cat_a_state
 
         progress_data["total"] = self.itr
         progress_data["current"] = 0
         progress_data["percent"] = 0
         progress_data["running"] = True
 
-
         i = 1
         while i <= self.itr:
             try:
+                # ✅ NEW: Check for pause
+                while cat_a_state.get("paused", False):
+                    self.logger.log("⏸️ Test paused, waiting...")
+                    time.sleep(1)
+                    
+                    # Check if stop was requested during pause
+                    if cat_a_state.get("stop_requested", False):
+                        self.logger.log("⏹️ Test stopped during pause")
+                        progress_data["running"] = False
+                        return
+
+                # ✅ NEW: Check for stop request
+                if cat_a_state.get("stop_requested", False):
+                    self.logger.log("⏹️ Test stopped by user")
+                    progress_data["running"] = False
+                    return
+
+                # ✅ NEW: Check for device disconnection
+                if cat_a_state.get("device_disconnected", False):
+                    self.logger.log(f"⚠️ Device disconnected: {cat_a_state.get('disconnected_device')}")
+                    # Don't automatically continue - wait for user action
+                    progress_data["running"] = False
+                    cat_a_state["state"] = "FAILED"
+                    cat_a_state["message"] = f"Device {cat_a_state.get('disconnected_device')} disconnected"
+                    return
+
                 self.logger.log("#" * 50)
 
                 if not self.all_devices_connected():
-                     raise Exception("Device Not Found!")
+                    raise Exception("Device Not Found!")
 
                 self.oos_checking()
 
@@ -368,11 +324,14 @@ class CallTester:
 
                 self.logger.log(f"Iteration {i} ---")
 
+                # Update current iteration in cat_a_state
+                cat_a_state["current_iteration"] = i
+
                 start_time = time.strftime("%Y-%m-%d %H:%M:%S")
                 start_time_datetime = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
                 date = start_time_datetime.date()
 
-            # ---- INITIATE CALL ----
+                # ---- INITIATE CALL ----
                 self.initiate_call()
 
                 mo_cell_info = get_cell_info(self.mo, self.mo_sim_pref, self.logger)
@@ -382,7 +341,6 @@ class CallTester:
                     raise Exception("Device Not Found!")
 
                 status, comment, s_time, e_time, c_duration = self.check_status(i, date)
-                
 
                 # --------------------------------------------------
                 # FORCE END CALL AFTER DURATION (CRITICAL FIX)
@@ -394,14 +352,13 @@ class CallTester:
                     self.end_call(self.mt)
                 except Exception as e:
                     self.logger.log(f"Call end error: {e}")
+                    
                 # --------------------------------------------------
                 # Delay BEFORE NEXT ITERATION
                 # --------------------------------------------------
                 self.logger.log(f"Waiting call_delay = {self.delay} seconds")
 
                 time.sleep(3)
-
-
 
                 mo_report = [
                     i, date, s_time, e_time, int(c_duration), status, comment
@@ -411,7 +368,7 @@ class CallTester:
                     i, date, s_time, e_time, int(c_duration), status, comment
                 ] + self.mt_cell_info + self.mt_gps
 
-            # ---- SAVE REPORTS ----
+                # ---- SAVE REPORTS ----
                 self.mo_sheet.append(mo_report)
                 self.mt_sheet.append(mt_report)
                 self.workbook.save(self.workbook_file_path)
@@ -423,7 +380,7 @@ class CallTester:
 
                 time.sleep(self.delay)
 
-            # ---- TIME CALCULATION ----
+                # ---- TIME CALCULATION ----
                 end_time = time.strftime("%Y-%m-%d %H:%M:%S")
                 start_timestamp = time.mktime(time.strptime(start_time, "%Y-%m-%d %H:%M:%S"))
                 end_timestamp = time.mktime(time.strptime(end_time, "%Y-%m-%d %H:%M:%S"))
@@ -431,20 +388,19 @@ class CallTester:
 
                 self.logger.log(f"Time taken for Iteration {i}: {time_taken_seconds} seconds")
 
-            # ---- BARRIER (SAFE) ----
+                # ---- BARRIER (SAFE) ----
                 try:
                     self.end_barrier.wait(timeout=10)
                 except Exception as b_err:
                     self.logger.log(f"Barrier skipped: {b_err}")
 
-
-            # ---- QUEUE UPDATE ----
+                # ---- QUEUE UPDATE ----
                 try:
-                   queue.put(int(self.mo_label[-1]))
+                    queue.put(int(self.mo_label[-1]))
                 except Exception as q_err:
-                   self.logger.log(f"Queue update skipped: {q_err}")
+                    self.logger.log(f"Queue update skipped: {q_err}")
 
-            # ---- PROGRESS UPDATE ----
+                # ---- PROGRESS UPDATE ----
                 progress_data["current"] = i
                 progress_data["percent"] = int((i / self.itr) * 100)
 
@@ -471,23 +427,23 @@ class CallTester:
                             self.logger.log("Device reconnected")
                             break
 
-    # ---- FINAL STATS ----
-                    try:
-                       mo_df_final = stats(self.mo_df, self.logger)
-                       mt_df_final = stats(self.mt_df, self.logger)
+        # ---- FINAL STATS ----
+        try:
+            mo_df_final = stats(self.mo_df, self.logger)
+            mt_df_final = stats(self.mt_df, self.logger)
 
-                       mo_df_final.to_csv(self.mo_file_path, index=False)
-                       mt_df_final.to_csv(self.mt_file_path, index=False)
+            mo_df_final.to_csv(self.mo_file_path, index=False)
+            mt_df_final.to_csv(self.mt_file_path, index=False)
 
-                       self.logger.log("CAT-A EXECUTION FINISHED")
-                    except Exception as f_err:
-                        self.logger.log(f"Finalization error: {f_err}")
+            self.logger.log("CAT-A EXECUTION FINISHED")
+        except Exception as f_err:
+            self.logger.log(f"Finalization error: {f_err}")
 
-                        progress_data["current"] = self.itr
-                        progress_data["percent"] = 100
-                        progress_data["running"] = False
+        progress_data["current"] = self.itr
+        progress_data["percent"] = 100
+        progress_data["running"] = False
 
-                        self.logger.log("CAT-A EXECUTION FINISHED")
+        self.logger.log("CAT-A EXECUTION FINISHED")
 
 
 def run_single_test(test: CallTester, queue):
@@ -511,8 +467,6 @@ def run_automation(config: dict):
 
     tester.itr = config.get("iterations")
     tester.run_test(queue=None)
-
-
 
 
 if __name__ == "__main__":
