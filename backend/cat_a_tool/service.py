@@ -9,7 +9,7 @@ from backend.cat_a_tool.runner import start_cat_a_test
 # =====================================================
 
 cat_a_state = {
-    "state": "IDLE",  # IDLE, RUNNING, PAUSED, COMPLETED, FAILED
+    "state": "IDLE",
     "message": "",
     "progress": 0,
 
@@ -19,11 +19,11 @@ cat_a_state = {
     "mo_serial": None,
     "mt_serial": None,
 
-    "connection_order": [],      # Connection order tracking
+    "connection_order": [],
 
     # NEW: multi-device support
-    "devices": [],               # raw adb list
-    "pairs": [],                 # derived MO–MT pairs
+    "devices": [],
+    "pairs": [],
     
     # NEW: Pause/Resume control
     "paused": False,
@@ -42,11 +42,9 @@ cat_a_state = {
 def update_pairs_from_devices():
     """
     UI helper: derive MO–MT pairs from connected devices
-    Does NOT change automation logic
     """
     devices = cat_a_state.get("devices", [])
 
-    # 🔧 FIX: If no devices, return empty pairs list
     if not devices:
         cat_a_state["pairs"] = []
         return
@@ -70,7 +68,6 @@ def update_pairs_from_devices():
                 "serial": mt,
                 "connected": bool(mt)
             },
-            # 🔧 FIX: Add flattened connection flags for frontend
             "mo_connected": bool(mo),
             "mt_connected": bool(mt)
         }
@@ -89,41 +86,47 @@ def detect_devices():
     """
     Detect connected devices and maintain connection order
     First connected device = MO, Second = MT
-    Also monitors for disconnection during test
     """
     try:
         result = subprocess.run(
             ["adb", "devices"],
             capture_output=True,
-            text=True
+            text=True,
+            timeout=5
         )
 
         lines = result.stdout.strip().split("\n")[1:]
         current_devices = [line.split()[0] for line in lines if "device" in line]
 
-        # 🔧 FIX: Initialize connection_order if it doesn't exist
         if "connection_order" not in cat_a_state:
             cat_a_state["connection_order"] = []
         
         existing_order = cat_a_state["connection_order"]
         
-        # ✅ NEW: Check for device disconnection during test
-        if cat_a_state.get("test_running", False):
+        # ✅ CRITICAL: Device disconnection detection ONLY during active test
+        test_is_running = cat_a_state.get("test_running", False)
+        
+        if test_is_running:
             mo_serial = cat_a_state.get("mo_serial")
             mt_serial = cat_a_state.get("mt_serial")
             
-            # Check if MO or MT disconnected during test
+            # Check MO disconnection
             if mo_serial and mo_serial not in current_devices:
-                cat_a_state["device_disconnected"] = True
-                cat_a_state["disconnected_device"] = "MO"
-                print(f"⚠️ ALERT: MO device {mo_serial} disconnected during test!")
-                
+                if not cat_a_state.get("device_disconnected", False):
+                    cat_a_state["device_disconnected"] = True
+                    cat_a_state["disconnected_device"] = "MO"
+                    cat_a_state["test_running"] = False  # Stop test
+                    print(f"⚠️ ALERT: MO device {mo_serial} disconnected during test!")
+                    
+            # Check MT disconnection
             if mt_serial and mt_serial not in current_devices:
-                cat_a_state["device_disconnected"] = True
-                cat_a_state["disconnected_device"] = "MT"
-                print(f"⚠️ ALERT: MT device {mt_serial} disconnected during test!")
+                if not cat_a_state.get("device_disconnected", False):
+                    cat_a_state["device_disconnected"] = True
+                    cat_a_state["disconnected_device"] = "MT"
+                    cat_a_state["test_running"] = False  # Stop test
+                    print(f"⚠️ ALERT: MT device {mt_serial} disconnected during test!")
         
-        # 🔧 FIX: If NO devices connected, CLEAR everything
+        # If NO devices connected, clear everything
         if not current_devices:
             cat_a_state["connection_order"] = []
             cat_a_state["devices"] = []
@@ -133,37 +136,47 @@ def detect_devices():
             cat_a_state["mt_connected"] = False
             cat_a_state["pairs"] = []
             
+            # Don't trigger disconnect alert if no test is running
+            if not test_is_running:
+                cat_a_state["device_disconnected"] = False
+                cat_a_state["disconnected_device"] = None
+            
             print("🔍 DEVICE DETECTION: NO DEVICES CONNECTED - STATE CLEARED")
             return
         
-        # 🔧 FIX: Remove disconnected devices from order
+        # Update connection order
         existing_order = [d for d in existing_order if d in current_devices]
         
-        # Add newly connected devices to the end (preserves connection order)
         for device in current_devices:
             if device not in existing_order:
                 existing_order.append(device)
         
         cat_a_state["connection_order"] = existing_order
-        
-        # ✅ USE CONNECTION ORDER instead of alphabetical order
         devices = cat_a_state["connection_order"]
         
         cat_a_state["devices"] = devices
-
-        # ✅ CORRECT: First connected = MO, Second connected = MT
         cat_a_state["mo_serial"] = devices[0] if len(devices) >= 1 else None
         cat_a_state["mt_serial"] = devices[1] if len(devices) >= 2 else None
 
-        # 🔧 FIX: Update pairs BEFORE setting connection flags
         update_pairs_from_devices()
 
-        # 🔧 FIX: Explicitly set connection status based on serial presence
         cat_a_state["mo_connected"] = cat_a_state["mo_serial"] is not None
         cat_a_state["mt_connected"] = cat_a_state["mt_serial"] is not None
+        
+        # Only print full details every 10 seconds to reduce spam
+        if not hasattr(detect_devices, 'counter'):
+            detect_devices.counter = 0
+        detect_devices.counter += 1
+        
+        if detect_devices.counter % 5 == 0:  # Every 10 seconds (since it runs every 2s)
+            print(f"🔍 DEVICE DETECTION:")
+            print(f"   Connection order: {devices}")
+            print(f"   MO = {cat_a_state['mo_serial']} (Connected: {cat_a_state['mo_connected']})")
+            print(f"   MT = {cat_a_state['mt_serial']} (Connected: {cat_a_state['mt_connected']})")
+            if test_is_running:
+                print(f"   ⚠️ TEST RUNNING - Monitoring for disconnections")
 
     except Exception as e:
-        # 🔧 FIX: On error, explicitly clear all connection states
         cat_a_state["mo_connected"] = False
         cat_a_state["mt_connected"] = False
         cat_a_state["mo_serial"] = None
@@ -171,6 +184,11 @@ def detect_devices():
         cat_a_state["devices"] = []
         cat_a_state["pairs"] = []
         cat_a_state["message"] = f"ADB error: {e}"
+        
+        if not cat_a_state.get("test_running", False):
+            cat_a_state["device_disconnected"] = False
+            cat_a_state["disconnected_device"] = None
+            
         print(f"❌ Device detection error: {e}")
 
 # =====================================================
@@ -178,7 +196,17 @@ def detect_devices():
 # =====================================================
 
 def start_device_monitor():
+    """Start background thread to monitor devices"""
     def _monitor():
+        time.sleep(3)
+        
+        cat_a_state["device_disconnected"] = False
+        cat_a_state["disconnected_device"] = None
+        print("=" * 60)
+        print("✅ Device monitor started - all flags cleared")
+        print("📱 Connect your devices NOW in order: MO first, then MT")
+        print("=" * 60)
+        
         while True:
             detect_devices()
             time.sleep(2)
@@ -192,7 +220,7 @@ def start_device_monitor():
 
 def pause_test():
     """Pause the running test"""
-    if cat_a_state["state"] == "RUNNING":
+    if cat_a_state["state"] == "RUNNING" and cat_a_state.get("test_running", False):
         cat_a_state["paused"] = True
         cat_a_state["state"] = "PAUSED"
         cat_a_state["message"] = "Test paused by user"
@@ -203,7 +231,7 @@ def pause_test():
 
 def resume_test():
     """Resume the paused test"""
-    if cat_a_state["state"] == "PAUSED":
+    if cat_a_state["state"] == "PAUSED" and cat_a_state.get("test_running", False):
         cat_a_state["paused"] = False
         cat_a_state["state"] = "RUNNING"
         cat_a_state["message"] = "Test resumed"
@@ -214,10 +242,15 @@ def resume_test():
 
 def stop_test():
     """Stop the running test"""
-    if cat_a_state["state"] in ["RUNNING", "PAUSED"]:
+    if cat_a_state.get("test_running", False):
         cat_a_state["stop_requested"] = True
         cat_a_state["state"] = "STOPPED"
         cat_a_state["message"] = "Test stopped by user"
+        cat_a_state["test_running"] = False
+        
+        cat_a_state["device_disconnected"] = False
+        cat_a_state["disconnected_device"] = None
+        
         print("⏹️ TEST STOPPED")
         return {"status": "success", "message": "Test stopped"}
     else:
@@ -237,25 +270,24 @@ def clear_disconnect_alert():
 def start_cat_a_service(config: dict):
     """
     UI → Service → Runner → Existing CAT-A automation
-    Now with pause/resume support
     """
 
     def _run():
         try:
+            print("=" * 60)
             print("✅ CAT-A SERVICE STARTED")
-            print("CONFIG FROM UI:", config)
+            print("=" * 60)
 
-            # Reset pause/stop flags
+            # ✅ CRITICAL: Set test_running FIRST
+            cat_a_state["test_running"] = True
             cat_a_state["paused"] = False
             cat_a_state["stop_requested"] = False
             cat_a_state["device_disconnected"] = False
             cat_a_state["disconnected_device"] = None
-            cat_a_state["test_running"] = True
+            
+            print("🔒 Test started: test_running = TRUE")
 
-            # ===============================
-            # HARD SAFETY GUARDS
-            # ===============================
-
+            # Safety guards
             if not cat_a_state["mo_connected"]:
                 cat_a_state["state"] = "FAILED"
                 cat_a_state["message"] = "MO device not connected"
@@ -277,11 +309,6 @@ def start_cat_a_service(config: dict):
                 print("❌ MT NUMBER MISSING")
                 return
 
-            # ===============================
-            # 🔑 CORRECT CONFIG MAPPING
-            # (MATCHES legacy CAT-A code)
-            # ===============================
-            
             if not cat_a_state.get("mo_serial") or not cat_a_state.get("mt_serial"):
                 cat_a_state["state"] = "FAILED"
                 cat_a_state["message"] = "MO/MT serial not available"
@@ -289,47 +316,48 @@ def start_cat_a_service(config: dict):
                 return
 
             mapped_config = {
-                "test_type": config["test_type"],           # REQUIRED
+                "test_type": config["test_type"],
                 "mt_number": config["mt_number"],
                 "iterations": config["iterations"],
                 "call_duration": config["call_duration"],
                 "call_delay": config["call_delay"],
-
-                # pull from shared runtime state
                 "mo_serial": cat_a_state["mo_serial"],
                 "mt_serial": cat_a_state["mt_serial"],
             }
 
-            # Store total iterations for progress tracking
             cat_a_state["total_iterations"] = config["iterations"]
             cat_a_state["current_iteration"] = 0
-
-            print("MAPPED CONFIG:", mapped_config)
-
-            # ===============================
-            # START EXECUTION
-            # ===============================
-
             cat_a_state["state"] = "RUNNING"
             cat_a_state["message"] = "CAT-A execution started"
             cat_a_state["progress"] = 0
 
-            # 🔥 ACTUAL AUTOMATION (with pause/resume support passed via cat_a_state)
+            print(f"📱 Using MO: {cat_a_state['mo_serial']}")
+            print(f"📱 Using MT: {cat_a_state['mt_serial']}")
+            print("=" * 60)
+
+            # ✅ CRITICAL: Start test (this runs in background thread)
             start_cat_a_test(mapped_config)
 
-            # Only mark as completed if not stopped
-            if not cat_a_state.get("stop_requested", False):
-                cat_a_state["state"] = "COMPLETED"
-                cat_a_state["message"] = "CAT-A execution completed"
-                cat_a_state["progress"] = 100
-
-            cat_a_state["test_running"] = False
-            print("✅ CAT-A EXECUTION FINISHED")
+            # ✅ IMPORTANT: Don't set test_running = False here!
+            # The test is still running in the background thread
+            # It will be set to False when:
+            # 1. Test completes naturally (in progress checker)
+            # 2. User stops test (in stop_test())
+            # 3. Device disconnects (in detect_devices())
+            
+            print("✅ TEST FINISHED: test_running = FALSE")
+            print("=" * 60)
 
         except Exception as e:
             cat_a_state["state"] = "FAILED"
             cat_a_state["message"] = str(e)
             cat_a_state["test_running"] = False
+            
+            cat_a_state["device_disconnected"] = False
+            cat_a_state["disconnected_device"] = None
+            
+            print("=" * 60)
             print("❌ CAT-A ERROR:", e)
+            print("=" * 60)
 
     threading.Thread(target=_run, daemon=True).start()
