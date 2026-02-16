@@ -20,6 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .catch(() => {});
   }
 
+
   function getRole(index) {
     const pair = Math.floor(index / 2) + 1;
     const type = index % 2 === 0 ? "MO" : "MT";
@@ -75,6 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (step === 3) step3.classList.remove("hidden");
   }
 
+  
   nextBtn.addEventListener("click", () => {
     const count = Number(deviceCount.value);
 
@@ -142,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
       showStep(3);
     }
   });
-  
+
   // Status polling
   setInterval(async () => {
     try {

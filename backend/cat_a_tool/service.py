@@ -231,6 +231,7 @@ def pause_test():
     else:
         return {"status": "error", "message": "No test is running"}
 
+
 def resume_test():
     """Resume the paused test"""
     if cat_a_state["state"] == "PAUSED" and cat_a_state.get("test_running", False):
