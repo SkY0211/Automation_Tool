@@ -115,16 +115,18 @@ def detect_devices():
                 if not cat_a_state.get("device_disconnected", False):
                     cat_a_state["device_disconnected"] = True
                     cat_a_state["disconnected_device"] = "MO"
-                    cat_a_state["test_running"] = False  # Stop test
-                    print(f"⚠️ ALERT: MO device {mo_serial} disconnected during test!")
+                    cat_a_state["paused"] = True  # PAUSE test (not stop)
+                    cat_a_state["state"] = "PAUSED"
+                    print(f"⚠️ ALERT: MO device {mo_serial} disconnected during test - TEST PAUSED!")
                     
             # Check MT disconnection
             if mt_serial and mt_serial not in current_devices:
                 if not cat_a_state.get("device_disconnected", False):
                     cat_a_state["device_disconnected"] = True
                     cat_a_state["disconnected_device"] = "MT"
-                    cat_a_state["test_running"] = False  # Stop test
-                    print(f"⚠️ ALERT: MT device {mt_serial} disconnected during test!")
+                    cat_a_state["paused"] = True  # PAUSE test (not stop)
+                    cat_a_state["state"] = "PAUSED"
+                    print(f"⚠️ ALERT: MT device {mt_serial} disconnected during test - TEST PAUSED!")
         
         # If NO devices connected, clear everything
         if not current_devices:

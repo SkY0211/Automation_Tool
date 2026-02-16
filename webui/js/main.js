@@ -142,7 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
       showStep(3);
     }
   });
-
+  
   // Status polling
   setInterval(async () => {
     try {
@@ -221,27 +221,24 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch("/api/cat-a/status");
       const data = await res.json();
       
-      if (data.test_running !== true && testRunning) {
-        // Backend says test stopped - check if it was due to disconnect
-        if (data.device_disconnected === true) {
-          const device = data.disconnected_device || "Unknown";
-          
-          console.log("⚠️ Device disconnect detected:", device);
-          
-          disconnectMessage.textContent = `${device} device has been disconnected during the test.`;
-          disconnectModal.classList.remove("hidden");
-          disconnectModal.style.display = "flex";
-          
-          if (controlButtons) controlButtons.classList.add("hidden");
-          startBtn.classList.remove("hidden");
-          resetBtn.classList.remove("hidden");
-          retestBtn.classList.remove("hidden");
-          
-          testRunning = false;
-          testPaused = false;
-          
-          await fetch("/api/cat-a/clear-disconnect", { method: "POST" });
-        }
+      // Check if device disconnected during test
+      if (data.device_disconnected === true && data.test_running === true) {
+        const device = data.disconnected_device || "Unknown";
+        
+        console.log("⚠️ Device disconnect detected - test PAUSED:", device);
+        
+        // Update popup message
+        disconnectMessage.textContent = `${device} device has been disconnected during the test. The test has been PAUSED. Please reconnect the device and click Resume to continue.`;
+        disconnectModal.classList.remove("hidden");
+        disconnectModal.style.display = "flex";
+        
+        // Set UI to paused state (keep control buttons visible!)
+        testPaused = true;
+        pauseBtn.classList.add("hidden");
+        resumeBtn.classList.remove("hidden");  // Show Resume button
+        
+        // Clear the disconnect alert on backend
+        await fetch("/api/cat-a/clear-disconnect", { method: "POST" });
       }
     } catch (e) {
       console.error("Disconnect monitoring failed", e);
@@ -283,6 +280,13 @@ document.addEventListener("DOMContentLoaded", () => {
       testPaused = false;
       
       console.log("✅ Test started");
+      
+      // Clear logs panel when starting new test
+      const logBox = document.getElementById("log-box");
+      if (logBox) {
+        logBox.innerText = "Test started...\n";
+        console.log("✅ Logs cleared for new test");
+      }
       
       startBtn.classList.add("hidden");
       resetBtn.classList.add("hidden");
@@ -403,21 +407,24 @@ document.addEventListener("DOMContentLoaded", () => {
       
       const backendTestRunning = statusData.test_running === true;
       
-      // Detect when test stops running on backend
-      if (testRunning && !backendTestRunning && lastBackendTestRunning) {
-        console.log("✅ Test ended - backend test_running became false");
+      // Detect when test stops running on backend OR reaches 100%
+      if (testRunning && (!backendTestRunning || progressData.percent >= 100) && lastBackendTestRunning) {
+        console.log("✅ Test ended - backend test_running became false or progress reached 100%");
         
         testRunning = false;
         testPaused = false;
         
+        // Show Start/Reset/Retest buttons
         startBtn.classList.remove("hidden");
         resetBtn.classList.remove("hidden");
         retestBtn.classList.remove("hidden");
+        
+        // Hide control buttons
         controlButtons.classList.add("hidden");
         
         // Only show completion alert if NOT a disconnect
         if (!statusData.device_disconnected) {
-          if (statusData.state === "COMPLETED") {
+          if (statusData.state === "COMPLETED" || progressData.percent >= 100) {
             alert("Test completed successfully!");
           } else if (statusData.state === "FAILED") {
             alert("Test failed: " + (statusData.message || "Unknown error"));
