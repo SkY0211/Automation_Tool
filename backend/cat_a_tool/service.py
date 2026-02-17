@@ -33,10 +33,21 @@ cat_a_state = {
     "device_disconnected": False,
     "disconnected_device": None,
     
+    # NEW: OOS (Out of Service) alert
+    "oos_detected": False,
+    "oos_devices": [],
+
     # NEW: Test tracking
     "test_running": False,
     "current_iteration": 0,
-    "total_iterations": 0
+    "total_iterations": 0,
+    
+    # DEBUG: Unique ID per test run - prevents old threads from interfering
+    "test_id": 0,
+    
+    # LOCKED serials: set at test start, used for disconnect detection (never shifts)
+    "locked_mo_serial": None,
+    "locked_mt_serial": None
 }
 
 def update_pairs_from_devices():
@@ -107,51 +118,66 @@ def detect_devices():
         test_is_running = cat_a_state.get("test_running", False)
         
         if test_is_running:
-            mo_serial = cat_a_state.get("mo_serial")
-            mt_serial = cat_a_state.get("mt_serial")
+            # ✅ USE LOCKED SERIALS - set once at test start, never change during test
+            # These are 100% reliable: locked_mo = first device connected, locked_mt = second
+            mo_serial = cat_a_state.get("locked_mo_serial")
+            mt_serial = cat_a_state.get("locked_mt_serial")
+            
+            print(f"🔍 DISCONNECT CHECK | locked_mo={mo_serial} | locked_mt={mt_serial} | current_devices={current_devices}")
             
             # Check MO disconnection
             if mo_serial and mo_serial not in current_devices:
                 if not cat_a_state.get("device_disconnected", False):
                     cat_a_state["device_disconnected"] = True
                     cat_a_state["disconnected_device"] = "MO"
-                    cat_a_state["paused"] = True  # PAUSE test (not stop)
+                    cat_a_state["paused"] = True
                     cat_a_state["state"] = "PAUSED"
-                    print(f"⚠️ ALERT: MO device {mo_serial} disconnected during test - TEST PAUSED!")
+                    print(f"⚠️ CONFIRMED: MO ({mo_serial}) disconnected → popup will show MO")
                     
             # Check MT disconnection
             if mt_serial and mt_serial not in current_devices:
                 if not cat_a_state.get("device_disconnected", False):
                     cat_a_state["device_disconnected"] = True
                     cat_a_state["disconnected_device"] = "MT"
-                    cat_a_state["paused"] = True  # PAUSE test (not stop)
+                    cat_a_state["paused"] = True
                     cat_a_state["state"] = "PAUSED"
-                    print(f"⚠️ ALERT: MT device {mt_serial} disconnected during test - TEST PAUSED!")
+                    print(f"⚠️ CONFIRMED: MT ({mt_serial}) disconnected → popup will show MT")
         
         # If NO devices connected, clear everything
         if not current_devices:
-            cat_a_state["connection_order"] = []
-            cat_a_state["devices"] = []
-            cat_a_state["mo_serial"] = None
-            cat_a_state["mt_serial"] = None
-            cat_a_state["mo_connected"] = False
-            cat_a_state["mt_connected"] = False
-            cat_a_state["pairs"] = []
-            
-            # Don't trigger disconnect alert if no test is running
+            # ✅ During a test, preserve connection_order so MO/MT identity is not lost
             if not test_is_running:
+                cat_a_state["connection_order"] = []
+                cat_a_state["devices"] = []
+                cat_a_state["mo_serial"] = None
+                cat_a_state["mt_serial"] = None
+                cat_a_state["mo_connected"] = False
+                cat_a_state["mt_connected"] = False
+                cat_a_state["pairs"] = []
                 cat_a_state["device_disconnected"] = False
                 cat_a_state["disconnected_device"] = None
+            else:
+                # During test: only update connected status, keep order intact
+                cat_a_state["mo_connected"] = False
+                cat_a_state["mt_connected"] = False
             
-            print("🔍 DEVICE DETECTION: NO DEVICES CONNECTED - STATE CLEARED")
+            print("🔍 DEVICE DETECTION: NO DEVICES CONNECTED")
             return
         
         # Update connection order
-        existing_order = [d for d in existing_order if d in current_devices]
-        
-        for device in current_devices:
-            if device not in existing_order:
-                existing_order.append(device)
+        # ✅ CRITICAL: During a test, NEVER remove devices from connection_order
+        # Removing a disconnected device shifts positions so MT becomes MO (wrong!)
+        if test_is_running:
+            # Only ADD new devices, never remove existing ones during test
+            for device in current_devices:
+                if device not in existing_order:
+                    existing_order.append(device)
+        else:
+            # Not in test: normal behaviour - remove disconnected, add new
+            existing_order = [d for d in existing_order if d in current_devices]
+            for device in current_devices:
+                if device not in existing_order:
+                    existing_order.append(device)
         
         cat_a_state["connection_order"] = existing_order
         devices = cat_a_state["connection_order"]
@@ -162,8 +188,13 @@ def detect_devices():
 
         update_pairs_from_devices()
 
-        cat_a_state["mo_connected"] = cat_a_state["mo_serial"] is not None
-        cat_a_state["mt_connected"] = cat_a_state["mt_serial"] is not None
+        if test_is_running:
+            # During test: connected = actually present in current_devices right now
+            cat_a_state["mo_connected"] = cat_a_state["mo_serial"] in current_devices if cat_a_state["mo_serial"] else False
+            cat_a_state["mt_connected"] = cat_a_state["mt_serial"] in current_devices if cat_a_state["mt_serial"] else False
+        else:
+            cat_a_state["mo_connected"] = cat_a_state["mo_serial"] is not None
+            cat_a_state["mt_connected"] = cat_a_state["mt_serial"] is not None
         
         # Only print full details every 10 seconds to reduce spam
         if not hasattr(detect_devices, 'counter'):
@@ -253,6 +284,8 @@ def stop_test():
         
         cat_a_state["device_disconnected"] = False
         cat_a_state["disconnected_device"] = None
+        cat_a_state["locked_mo_serial"] = None
+        cat_a_state["locked_mt_serial"] = None
         
         print("⏹️ TEST STOPPED")
         return {"status": "success", "message": "Test stopped"}
@@ -264,6 +297,12 @@ def clear_disconnect_alert():
     cat_a_state["device_disconnected"] = False
     cat_a_state["disconnected_device"] = None
     return {"status": "success", "message": "Alert cleared"}
+
+def clear_oos_alert():
+    """Clear OOS (Out of Service) alert"""
+    cat_a_state["oos_detected"] = False
+    cat_a_state["oos_devices"] = []
+    return {"status": "success", "message": "OOS alert cleared"}
 
 
 # =====================================================
@@ -282,13 +321,17 @@ def start_cat_a_service(config: dict):
             print("=" * 60)
 
             # ✅ CRITICAL: Set test_running FIRST
+            cat_a_state["test_id"] = cat_a_state.get("test_id", 0) + 1  # NEW unique ID per run
             cat_a_state["test_running"] = True
             cat_a_state["paused"] = False
             cat_a_state["stop_requested"] = False
             cat_a_state["device_disconnected"] = False
             cat_a_state["disconnected_device"] = None
+            cat_a_state["oos_detected"] = False
+            cat_a_state["oos_devices"] = []
             
-            print("🔒 Test started: test_running = TRUE")
+            my_test_id = cat_a_state["test_id"]  # capture this run's ID
+            print(f"🔒 Test started: test_running = TRUE (test_id={my_test_id})")
 
             # Safety guards
             if not cat_a_state["mo_connected"]:
@@ -326,7 +369,14 @@ def start_cat_a_service(config: dict):
                 "call_delay": config["call_delay"],
                 "mo_serial": cat_a_state["mo_serial"],
                 "mt_serial": cat_a_state["mt_serial"],
+                "test_id": my_test_id,   # pass unique ID into runner
             }
+
+            # ✅ LOCK the MO/MT serials at the moment test starts
+            # detect_devices() will use these locked values — never connection_order which can shift
+            cat_a_state["locked_mo_serial"] = cat_a_state["mo_serial"]
+            cat_a_state["locked_mt_serial"] = cat_a_state["mt_serial"]
+            print(f"🔒 LOCKED: MO={cat_a_state['locked_mo_serial']}  MT={cat_a_state['locked_mt_serial']}")
 
             cat_a_state["total_iterations"] = config["iterations"]
             cat_a_state["current_iteration"] = 0

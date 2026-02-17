@@ -10,7 +10,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeDisconnectModal = document.getElementById("close-disconnect-modal");
   const disconnectMessage = document.getElementById("disconnect-message");
 
-  // Hide modal and clear alerts on startup
+  // ✅ NEW: OOS modal references
+  const oosModal = document.getElementById("oos-modal");
+  const closeOosModal = document.getElementById("close-oos-modal");
+  const oosMessage = document.getElementById("oos-message");
+  const oosDevicesList = document.getElementById("oos-devices-list");
+
+  // Hide both modals and clear alerts on startup
   if (disconnectModal) {
     disconnectModal.classList.add("hidden");
     disconnectModal.style.display = "none";
@@ -18,6 +24,14 @@ document.addEventListener("DOMContentLoaded", () => {
     fetch("/api/cat-a/clear-disconnect", { method: "POST" })
       .then(() => console.log("✅ Startup: Alerts cleared"))
       .catch(() => {});
+  }
+
+  // ✅ NEW: Hide OOS modal on startup
+  if (oosModal) {
+    oosModal.classList.add("hidden");
+    oosModal.style.display = "none";
+
+    fetch("/api/cat-a/clear-oos", { method: "POST" }).catch(() => {});
   }
 
 
@@ -38,6 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("home-screen").classList.remove("hidden");
     
     fetch("/api/cat-a/clear-disconnect", { method: "POST" }).catch(() => {});
+    fetch("/api/cat-a/clear-oos", { method: "POST" }).catch(() => {});
   }
 
   document.body.addEventListener("click", (event) => {
@@ -230,7 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("⚠️ Device disconnect detected - test PAUSED:", device);
         
         // Update popup message
-        disconnectMessage.textContent = `${device} device has been disconnected during the test. The test has been PAUSED. Please reconnect the device and click Resume to continue.`;
+        disconnectMessage.textContent = `A device has been disconnected during the test. The test has been PAUSED. Please reconnect the device and click Resume to continue.`;
         disconnectModal.classList.remove("hidden");
         disconnectModal.style.display = "flex";
         
@@ -253,6 +268,64 @@ document.addEventListener("DOMContentLoaded", () => {
       disconnectModal.style.display = "none";
       
       await fetch("/api/cat-a/clear-disconnect", { method: "POST" }).catch(() => {});
+    });
+  }
+
+  // ✅ NEW: OOS monitoring interval
+  setInterval(async () => {
+    // Check both frontend flag AND don't require it for OOS (backend is source of truth)
+    const homeScreen = document.getElementById("home-screen");
+    if (homeScreen && !homeScreen.classList.contains("hidden")) return;
+
+    if (!step3 || step3.classList.contains("hidden")) return;
+
+    try {
+      const res = await fetch("/api/cat-a/status");
+      const data = await res.json();
+
+      // ✅ DEBUG: Use backend test_running as source of truth (not just frontend testRunning)
+      const backendRunning = data.test_running === true;
+      
+      console.debug(`OOS check: oos_detected=${data.oos_detected}, test_running=${backendRunning}, frontend_testRunning=${testRunning}`);
+
+      if (data.oos_detected === true && backendRunning) {
+        const devices = data.oos_devices || [];
+        console.log("📵 OOS detected - test PAUSED:", devices);
+
+        // Sync frontend state with backend
+        testRunning = true;
+        testPaused = true;
+
+        // Update OOS modal content - no device names shown
+        oosDevicesList.textContent = "";
+
+        // Show OOS modal
+        oosModal.classList.remove("hidden");
+        oosModal.style.display = "flex";
+
+        // Switch buttons to paused state
+        pauseBtn.classList.add("hidden");
+        resumeBtn.classList.remove("hidden");
+        controlButtons.classList.remove("hidden");
+        startBtn.classList.add("hidden");
+        resetBtn.classList.add("hidden");
+        retestBtn.classList.add("hidden");
+      }
+    } catch (e) {
+      console.error("OOS monitoring failed", e);
+    }
+  }, 2000);
+
+  // ✅ NEW: OOS modal close handler
+  if (closeOosModal) {
+    closeOosModal.addEventListener("click", async () => {
+      oosModal.classList.add("hidden");
+      oosModal.style.display = "none";
+
+      // Clear OOS alert on backend so it doesn't re-trigger immediately
+      await fetch("/api/cat-a/clear-oos", { method: "POST" }).catch(() => {});
+
+      console.log("✅ OOS modal closed - user acknowledged");
     });
   }
 
@@ -460,6 +533,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const homeScreen = document.getElementById("home-screen");
     if (homeScreen && !homeScreen.classList.contains("hidden")) {
       fetch("/api/cat-a/clear-disconnect", { method: "POST" }).catch(() => {});
+      fetch("/api/cat-a/clear-oos", { method: "POST" }).catch(() => {});
     }
   }, 5000);
 

@@ -138,7 +138,7 @@
 
 </div>
 
-<!-- NEW: Device Disconnection Popup Modal -->
+<!-- Device Disconnection Popup Modal -->
 <div id="disconnect-modal" class="modal hidden">
     <div class="modal-content">
         <div class="modal-header">
@@ -149,6 +149,23 @@
         </div>
         <div class="modal-footer">
             <button class="primary" id="close-disconnect-modal">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ NEW: OOS (Out of Service) Popup Modal -->
+<div id="oos-modal" class="modal hidden">
+    <div class="modal-content">
+        <div class="modal-header" style="background-color: #fff3e0;">
+            <h2>📵 Out of Service (OOS) Detected</h2>
+        </div>
+        <div class="modal-body">
+            <p id="oos-message">One or more devices are Out of Service.</p>
+            <p id="oos-devices-list"></p>
+            <p style="margin-top: 10px;">The test has been <strong>PAUSED</strong>. Please move the device(s) to an area with network coverage, then click <strong>Resume</strong> to continue.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="primary" id="close-oos-modal">OK — I will reconnect</button>
         </div>
     </div>
 </div>
