@@ -271,9 +271,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ✅ NEW: OOS monitoring interval
+  // ✅ OOS monitoring - now fully automated, no popup needed
   setInterval(async () => {
-    // Check both frontend flag AND don't require it for OOS (backend is source of truth)
     const homeScreen = document.getElementById("home-screen");
     if (homeScreen && !homeScreen.classList.contains("hidden")) return;
 
@@ -283,33 +282,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch("/api/cat-a/status");
       const data = await res.json();
 
-      // ✅ DEBUG: Use backend test_running as source of truth (not just frontend testRunning)
       const backendRunning = data.test_running === true;
-      
-      console.debug(`OOS check: oos_detected=${data.oos_detected}, test_running=${backendRunning}, frontend_testRunning=${testRunning}`);
 
+      // Just log OOS status - no popup needed since it's auto-handled
       if (data.oos_detected === true && backendRunning) {
-        const devices = data.oos_devices || [];
-        console.log("📵 OOS detected - test PAUSED:", devices);
-
-        // Sync frontend state with backend
-        testRunning = true;
-        testPaused = true;
-
-        // Update OOS modal content - no device names shown
-        oosDevicesList.textContent = "";
-
-        // Show OOS modal
-        oosModal.classList.remove("hidden");
-        oosModal.style.display = "flex";
-
-        // Switch buttons to paused state
-        pauseBtn.classList.add("hidden");
-        resumeBtn.classList.remove("hidden");
-        controlButtons.classList.remove("hidden");
-        startBtn.classList.add("hidden");
-        resetBtn.classList.add("hidden");
-        retestBtn.classList.add("hidden");
+        console.log("📵 OOS detected - auto-waiting for devices to come back online");
+        // OOS is fully automated on backend - no user action needed
       }
     } catch (e) {
       console.error("OOS monitoring failed", e);
