@@ -257,8 +257,61 @@ class CallTester:
                 f"OOS Zone ({mt_service_state}) found in {self.mt_label} at Location (lat, long) -> {mt_lat, mt_long}")
 
         if mo_flag or mt_flag:
-            ooszone(self.home, oos_devices)
-            self.logger.log("Again checking if the device(s) are back IN SERVICE")
+            # ✅ NEW: Set OOS alert in cat_a_state and PAUSE test
+            from backend.cat_a_tool.service import cat_a_state
+            
+            # Capture this thread's test_id - if it changes, we're a stale thread
+            my_test_id = getattr(self, 'my_test_id', None)
+            
+            cat_a_state["oos_detected"] = True
+            cat_a_state["oos_devices"] = oos_devices
+            cat_a_state["paused"] = True
+            cat_a_state["state"] = "PAUSED"
+            self.logger.log(f"⚠️ OOS DETECTED: {oos_devices} - TEST PAUSED until back IN SERVICE")
+            print(f"⚠️ OOS DETECTED - test_id={my_test_id}, oos_detected=True, paused=True")
+
+            # ✅ Wait until OOS is cleared (user acknowledges) and devices are back IN SERVICE
+            while True:
+                time.sleep(2)
+                
+                # ✅ BUG FIX: Check if a NEW test has started (our thread is now stale)
+                current_test_id = cat_a_state.get("test_id", None)
+                if my_test_id is not None and current_test_id != my_test_id:
+                    self.logger.log(f"⚠️ New test started (id={current_test_id}), stopping stale OOS thread (id={my_test_id})")
+                    print(f"⚠️ STALE THREAD DETECTED: my_test_id={my_test_id}, current_test_id={current_test_id} - exiting OOS loop")
+                    return
+
+                # ✅ BUG FIX: Check stop_requested AFTER paused check, not before
+                # Check if still paused first (user hasn't resumed yet)
+                if cat_a_state.get("paused", True):
+                    self.logger.log("⏸️ Waiting for user to resume after OOS...")
+                    print(f"  DEBUG OOS loop: paused={cat_a_state.get('paused')}, stop_requested={cat_a_state.get('stop_requested')}, test_id={current_test_id}")
+                    continue
+
+                # Check stop request (only when not paused)
+                if cat_a_state.get("stop_requested", False):
+                    self.logger.log("⏹️ Test stopped during OOS wait")
+                    print(f"⏹️ OOS loop: stop_requested=True, exiting")
+                    return
+
+                # User resumed - check if devices are actually back IN SERVICE
+                re_mo = get_service_state(self.mo, self.logger)
+                re_mt = get_service_state(self.mt, self.logger)
+
+                mo_ok = "IN_SERVICE" in re_mo[self.mo_sim_pref]
+                mt_ok = "IN_SERVICE" in re_mt[self.mt_sim_pref]
+
+                if mo_ok and mt_ok:
+                    self.logger.log("✅ Both devices back IN SERVICE - resuming test")
+                    cat_a_state["oos_detected"] = False
+                    cat_a_state["oos_devices"] = []
+                    break
+                else:
+                    # Still OOS - pause again and notify UI
+                    self.logger.log("⚠️ Device(s) still OOS - re-pausing")
+                    cat_a_state["oos_detected"] = True
+                    cat_a_state["paused"] = True
+                    cat_a_state["state"] = "PAUSED"
         else:
             self.logger.log(f"Both {self.mo_label} and {self.mt_label} are IN SERVICE")
 

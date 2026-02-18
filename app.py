@@ -24,7 +24,8 @@ from backend.cat_a_tool.service import (
     pause_test,
     resume_test,
     stop_test,
-    clear_disconnect_alert
+    clear_disconnect_alert,
+    clear_oos_alert          # ✅ NEW: OOS alert function
 )
 
 from backend.cat_a_tool.logger import get_ui_logs
@@ -95,7 +96,10 @@ def api_cat_a_status():
         "device_disconnected": cat_a_state.get("device_disconnected", False),
         "disconnected_device": cat_a_state.get("disconnected_device"),
         "current_iteration": cat_a_state.get("current_iteration", 0),
-        "total_iterations": cat_a_state.get("total_iterations", 0)
+        "total_iterations": cat_a_state.get("total_iterations", 0),
+        # ✅ NEW: OOS fields
+        "oos_detected": cat_a_state.get("oos_detected", False),
+        "oos_devices": cat_a_state.get("oos_devices", [])
     })
 
 @app.route("/api/cat-a/logs", methods=["GET"])
@@ -139,6 +143,19 @@ def clear_disconnect():
     """Clear device disconnection alert"""
     try:
         result = clear_disconnect_alert()
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+# ✅ NEW: OOS alert endpoint
+@app.route('/api/cat-a/clear-oos', methods=['POST'])
+def clear_oos():
+    """Clear OOS (Out of Service) alert"""
+    try:
+        result = clear_oos_alert()
         return jsonify(result), 200
     except Exception as e:
         return jsonify({

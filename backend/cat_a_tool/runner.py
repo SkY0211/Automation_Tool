@@ -46,6 +46,9 @@ def start_cat_a_test(config):
             ],
             no_of_devices=1
         )
+        
+        # Store this run's unique test_id in the tester
+        tester.my_test_id = config.get("test_id", 0)
 
         logger.log("CallTester initialized successfully")
 
