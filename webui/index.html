@@ -153,19 +153,24 @@
     </div>
 </div>
 
-<!-- ✅ NEW: OOS (Out of Service) Popup Modal -->
+<!-- ✅ OOS Modal - Auto-dismisses after 4 seconds -->
 <div id="oos-modal" class="modal hidden">
     <div class="modal-content">
         <div class="modal-header" style="background-color: #fff3e0;">
             <h2>📵 Out of Service (OOS) Detected</h2>
         </div>
         <div class="modal-body">
-            <p id="oos-message">One or more devices are Out of Service.</p>
-            <p id="oos-devices-list"></p>
-            <p style="margin-top: 10px;">The test has been <strong>PAUSED</strong>. Please move the device(s) to an area with network coverage, then click <strong>Resume</strong> to continue.</p>
+            <p><strong>⚠️ A device has entered an OOS zone!</strong></p>
+            <p id="oos-devices-list" style="color: #ff6b6b; font-weight: 500;"></p>
+            <p style="margin-top: 10px; color: #666; font-size: 14px;">
+                <em>This notification will auto-dismiss in 4 seconds...</em>
+            </p>
+            <p style="margin-top: 10px; font-size: 13px;">
+                The test will automatically wait for the device to return to service and then continue.
+            </p>
         </div>
         <div class="modal-footer">
-            <button class="primary" id="close-oos-modal">OK — I will reconnect</button>
+            <button class="primary" id="close-oos-modal">OK</button>
         </div>
     </div>
 </div>

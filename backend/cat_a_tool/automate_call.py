@@ -172,10 +172,17 @@ class CallTester:
                                     raise Exception("Device Not Found!")
                                 
                                 # ✅ CHECK FOR OOS DURING ACTIVE CALL
-                                mo_service = get_service_state(self.mo, self.logger)
-                                mt_service = get_service_state(self.mt, self.logger)
-                                mo_in_service = "IN_SERVICE" in mo_service[self.mo_sim_pref]
-                                mt_in_service = "IN_SERVICE" in mt_service[self.mt_sim_pref]
+                                # Wrap in try-except to handle parsing errors when device is OOS
+                                try:
+                                    mo_service = get_service_state(self.mo, self.logger)
+                                    mt_service = get_service_state(self.mt, self.logger)
+                                    mo_in_service = "IN_SERVICE" in mo_service[self.mo_sim_pref]
+                                    mt_in_service = "IN_SERVICE" in mt_service[self.mt_sim_pref]
+                                except Exception as e:
+                                    # If parsing fails, treat as OOS (device state changed)
+                                    self.logger.log(f"Service state check error (treating as OOS): {e}")
+                                    mo_in_service = False
+                                    mt_in_service = False
                                 
                                 if not mo_in_service or not mt_in_service:
                                     # OOS detected during call - this is NOT a dropped call
@@ -217,11 +224,17 @@ class CallTester:
                                             self.logger.log("⏹️ Test stopped during OOS wait")
                                             return "OOS_ABORT", "Test stopped during OOS", start_time, end_time, 0
                                         
-                                        # Check if back online
-                                        re_mo = get_service_state(self.mo, self.logger)
-                                        re_mt = get_service_state(self.mt, self.logger)
-                                        mo_ok = "IN_SERVICE" in re_mo[self.mo_sim_pref]
-                                        mt_ok = "IN_SERVICE" in re_mt[self.mt_sim_pref]
+                                        # Check if back online (wrap in try-except for parsing errors)
+                                        try:
+                                            re_mo = get_service_state(self.mo, self.logger)
+                                            re_mt = get_service_state(self.mt, self.logger)
+                                            mo_ok = "IN_SERVICE" in re_mo[self.mo_sim_pref]
+                                            mt_ok = "IN_SERVICE" in re_mt[self.mt_sim_pref]
+                                        except Exception as e:
+                                            # If parsing fails, device still OOS
+                                            self.logger.log(f"Service state check error during OOS wait: {e}")
+                                            mo_ok = False
+                                            mt_ok = False
                                         
                                         if mo_ok and mt_ok:
                                             self.logger.log("✅ Devices back online - will retry this iteration")
@@ -302,26 +315,39 @@ class CallTester:
         mt_flag = False
         oos_devices = []
 
-        mo_service_state = get_service_state(self.mo, self.logger)
-        if "IN_SERVICE" in mo_service_state[self.mo_sim_pref]:
-            mo_flag = False
-        else:
+        # Wrap MO service state check in try-except
+        try:
+            mo_service_state = get_service_state(self.mo, self.logger)
+            if "IN_SERVICE" in mo_service_state[self.mo_sim_pref]:
+                mo_flag = False
+            else:
+                oos_devices.append(f"{self.mo_label} -> SIM{self.mo_sim_pref + 1}")
+                mo_flag = True
+                mo_lat, mo_long = get_location(self.mo, self.logger)
+                self.logger.log(
+                    f"OOS Zone ({mo_service_state}) found in {self.mo_label} at Location (lat, long) -> {mo_lat, mo_long}")
+        except Exception as e:
+            # If parsing fails, treat as OOS
+            self.logger.log(f"MO service state check error (treating as OOS): {e}")
             oos_devices.append(f"{self.mo_label} -> SIM{self.mo_sim_pref + 1}")
             mo_flag = True
-            mo_lat, mo_long = get_location(self.mo, self.logger)
-            self.logger.log(
-                f"OOS Zone ({mo_service_state}) found in {self.mo_label} at Location (lat, long) -> {mo_lat, mo_long}")
 
-        # if mt_flag:
-        mt_service_state = get_service_state(self.mt, self.logger)
-        if "IN_SERVICE" in mt_service_state[self.mt_sim_pref]:
-            mt_flag = False
-        else:
+        # Wrap MT service state check in try-except
+        try:
+            mt_service_state = get_service_state(self.mt, self.logger)
+            if "IN_SERVICE" in mt_service_state[self.mt_sim_pref]:
+                mt_flag = False
+            else:
+                oos_devices.append(f"{self.mt_label} -> SIM{self.mt_sim_pref + 1}")
+                mt_flag = True
+                mt_lat, mt_long = get_location(self.mt, self.logger)
+                self.logger.log(
+                    f"OOS Zone ({mt_service_state}) found in {self.mt_label} at Location (lat, long) -> {mt_lat, mt_long}")
+        except Exception as e:
+            # If parsing fails, treat as OOS
+            self.logger.log(f"MT service state check error (treating as OOS): {e}")
             oos_devices.append(f"{self.mt_label} -> SIM{self.mt_sim_pref + 1}")
             mt_flag = True
-            mt_lat, mt_long = get_location(self.mt, self.logger)
-            self.logger.log(
-                f"OOS Zone ({mt_service_state}) found in {self.mt_label} at Location (lat, long) -> {mt_lat, mt_long}")
 
         if mo_flag or mt_flag:
             # ✅ OOS DETECTED: Auto-wait for devices to come back IN_SERVICE
@@ -354,12 +380,17 @@ class CallTester:
                     print(f"⏹️ OOS loop: stop_requested=True, exiting")
                     return
 
-                # Check if devices are back IN SERVICE
-                re_mo = get_service_state(self.mo, self.logger)
-                re_mt = get_service_state(self.mt, self.logger)
-
-                mo_ok = "IN_SERVICE" in re_mo[self.mo_sim_pref]
-                mt_ok = "IN_SERVICE" in re_mt[self.mt_sim_pref]
+                # Check if devices are back IN SERVICE (wrap in try-except)
+                try:
+                    re_mo = get_service_state(self.mo, self.logger)
+                    re_mt = get_service_state(self.mt, self.logger)
+                    mo_ok = "IN_SERVICE" in re_mo[self.mo_sim_pref]
+                    mt_ok = "IN_SERVICE" in re_mt[self.mt_sim_pref]
+                except Exception as e:
+                    # If parsing fails, device still OOS
+                    self.logger.log(f"Service state check error during OOS wait: {e}")
+                    mo_ok = False
+                    mt_ok = False
 
                 if mo_ok and mt_ok:
                     # ✅ AUTO-RESUME: Devices are back online

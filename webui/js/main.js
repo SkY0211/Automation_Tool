@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let pairs = [];
   let testRunning = false;
   let testPaused = false;
+  let previousOosState = false;  // Track previous OOS state to detect changes
 
   const disconnectModal = document.getElementById("disconnect-modal");
   const closeDisconnectModal = document.getElementById("close-disconnect-modal");
@@ -223,8 +224,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Device disconnection monitoring
   setInterval(async () => {
-    if (!testRunning) return;
-    
     const homeScreen = document.getElementById("home-screen");
     if (homeScreen && !homeScreen.classList.contains("hidden")) {
       return;
@@ -237,6 +236,9 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const res = await fetch("/api/cat-a/status");
       const data = await res.json();
+      
+      // Use backend test_running instead of frontend testRunning
+      if (!data.test_running) return;
       
       // Check if device disconnected during test
       if (data.device_disconnected === true && data.test_running === true) {
@@ -284,10 +286,62 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const backendRunning = data.test_running === true;
 
-      // Just log OOS status - no popup needed since it's auto-handled
+      // ✅ YOUR ORIGINAL CODE + POPUP WHEN STATE CHANGES
       if (data.oos_detected === true && backendRunning) {
         console.log("📵 OOS detected - auto-waiting for devices to come back online");
-        // OOS is fully automated on backend - no user action needed
+        
+        // Show popup ONLY when OOS state changes from false → true
+        if (previousOosState === false) {
+          console.log("🔔 OOS state changed: false → true, showing alert");
+          previousOosState = true;  // Update state
+          
+          // Update modal message
+          const oosDevicesList = document.getElementById("oos-devices-list");
+          if (oosDevicesList) {
+            oosDevicesList.textContent = "A device has entered an Out of Service zone";
+          }
+          
+          // Show modal
+          if (oosModal) {
+            oosModal.style.display = "flex";
+            oosModal.classList.remove("hidden");
+          }
+          
+          // Play sound
+          try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.2);
+          } catch (e) {
+            console.log("Sound failed:", e);
+          }
+          
+          // Auto-dismiss after 4 seconds
+          setTimeout(() => {
+            if (oosModal) {
+              oosModal.style.display = "none";
+              oosModal.classList.add("hidden");
+            }
+            console.log("✅ OOS alert auto-dismissed");
+          }, 4000);
+        }
+      } else {
+        // Reset state when OOS is false
+        if (previousOosState === true) {
+          previousOosState = false;
+          console.log("✅ OOS cleared - state reset");
+        }
       }
     } catch (e) {
       console.error("OOS monitoring failed", e);
