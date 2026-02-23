@@ -170,6 +170,82 @@ class CallTester:
                             while True:
                                 if not self.all_devices_connected():
                                     raise Exception("Device Not Found!")
+<<<<<<< Updated upstream
+=======
+                                
+                                # ✅ CHECK FOR OOS DURING ACTIVE CALL
+                                mo_service = get_service_state(self.mo, self.logger)
+                                mt_service = get_service_state(self.mt, self.logger)
+                                mo_in_service = "IN_SERVICE" in mo_service[self.mo_sim_pref]
+                                mt_in_service = "IN_SERVICE" in mt_service[self.mt_sim_pref]
+                                
+                                if not mo_in_service or not mt_in_service:
+                                    # CRITICAL: Check if this is actually OOS or device disconnect
+                                    if not self.all_devices_connected():
+                                        # Device disconnected - NOT OOS! Raise exception
+                                        self.logger.log("⚠️ Device disconnected (NOT OOS) - raising exception")
+                                        raise Exception("Device Not Found!")
+                                    
+                                    # OOS detected during call - this is NOT a dropped call
+                                    oos_devices = []
+                                    if not mo_in_service:
+                                        oos_devices.append(f"{self.mo_label} -> SIM{self.mo_sim_pref + 1}")
+                                    if not mt_in_service:
+                                        oos_devices.append(f"{self.mt_label} -> SIM{self.mt_sim_pref + 1}")
+                                    
+                                    self.logger.log(f"⚠️ OOS DURING CALL: {oos_devices} - Aborting iteration {current_itr}")
+                                    self.logger.log("📍 This is NOT a dropped call - waiting for devices to come back online")
+                                    
+                                    # End the call gracefully
+                                    try:
+                                        self.end_call(self.mo)
+                                        self.end_call(self.mt)
+                                    except:
+                                        pass
+                                    
+                                    # Wait for devices to come back
+                                    from backend.cat_a_tool.service import cat_a_state
+                                    my_test_id = getattr(self, 'my_test_id', None)
+                                    
+                                    cat_a_state["oos_detected"] = True
+                                    cat_a_state["oos_devices"] = oos_devices
+                                    
+                                    self.logger.log("⏳ Waiting for devices to return to IN_SERVICE...")
+                                    
+                                    while True:
+                                        time.sleep(5)
+                                        
+                                        # Check for test stop/new test
+                                        current_test_id = cat_a_state.get("test_id", None)
+                                        if my_test_id is not None and current_test_id != my_test_id:
+                                            self.logger.log(f"⚠️ New test started - exiting OOS wait")
+                                            return "OOS_ABORT", "New test started during OOS", start_time, end_time, 0
+                                        
+                                        if cat_a_state.get("stop_requested", False):
+                                            self.logger.log("⏹️ Test stopped during OOS wait")
+                                            return "OOS_ABORT", "Test stopped during OOS", start_time, end_time, 0
+                                        
+                                        # Check if back online
+                                        re_mo = get_service_state(self.mo, self.logger)
+                                        re_mt = get_service_state(self.mt, self.logger)
+                                        mo_ok = "IN_SERVICE" in re_mo[self.mo_sim_pref]
+                                        mt_ok = "IN_SERVICE" in re_mt[self.mt_sim_pref]
+                                        
+                                        if mo_ok and mt_ok:
+                                            self.logger.log("✅ Devices back online - will retry this iteration")
+                                            cat_a_state["oos_detected"] = False
+                                            cat_a_state["oos_devices"] = []
+                                            # Return special status so iteration is retried
+                                            return "OOS_RETRY", "OOS during call - retrying iteration", start_time, end_time, 0
+                                        else:
+                                            still_oos = []
+                                            if not mo_ok:
+                                                still_oos.append(self.mo_label)
+                                            if not mt_ok:
+                                                still_oos.append(self.mt_label)
+                                            self.logger.log(f"⏳ Still OOS: {', '.join(still_oos)}")
+                                
+>>>>>>> Stashed changes
                                 # Disconnect the call on MT device if not already ended
                                 status_mo = self.get_call_state(self.mo)
                                 status_mt = self.get_call_state(self.mt)
@@ -257,7 +333,17 @@ class CallTester:
                 f"OOS Zone ({mt_service_state}) found in {self.mt_label} at Location (lat, long) -> {mt_lat, mt_long}")
 
         if mo_flag or mt_flag:
+<<<<<<< Updated upstream
             # ✅ NEW: Set OOS alert in cat_a_state and PAUSE test
+=======
+            # CRITICAL: Check if this is actually OOS or device disconnect
+            if not self.all_devices_connected():
+                # Device disconnected - NOT OOS! Raise exception
+                self.logger.log("⚠️ Device disconnected (NOT OOS) - raising exception")
+                raise Exception("Device Not Found!")
+            
+            # ✅ OOS DETECTED: Auto-wait for devices to come back IN_SERVICE
+>>>>>>> Stashed changes
             from backend.cat_a_tool.service import cat_a_state
             
             # Capture this thread's test_id - if it changes, we're a stale thread
@@ -294,7 +380,11 @@ class CallTester:
                     print(f"⏹️ OOS loop: stop_requested=True, exiting")
                     return
 
+<<<<<<< Updated upstream
                 # User resumed - check if devices are actually back IN SERVICE
+=======
+                # Check if devices are back IN SERVICE
+>>>>>>> Stashed changes
                 re_mo = get_service_state(self.mo, self.logger)
                 re_mt = get_service_state(self.mt, self.logger)
 
