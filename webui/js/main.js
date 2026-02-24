@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let pairs = [];
   let testRunning = false;
   let testPaused = false;
+  let previousOosState = false;  // Track previous OOS state to detect changes
 
   const disconnectModal = document.getElementById("disconnect-modal");
   const closeDisconnectModal = document.getElementById("close-disconnect-modal");
@@ -15,6 +16,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeOosModal = document.getElementById("close-oos-modal");
   const oosMessage = document.getElementById("oos-message");
   const oosDevicesList = document.getElementById("oos-devices-list");
+
+  // ✅ Device connection modal references
+  const deviceConnectionModal = document.getElementById("device-connection-modal");
+  const deviceConnectionTitle = document.getElementById("device-connection-title");
+  const deviceInstruction = document.getElementById("device-instruction");
+  const connectionStep1 = document.getElementById("connection-step-1");
+  const connectionStep2 = document.getElementById("connection-step-2");
+  const proceedBtn = document.getElementById("proceed-connection-btn");
+  const confirmDeviceBtn = document.getElementById("confirm-device-btn");
 
   // Hide both modals and clear alerts on startup
   if (disconnectModal) {
@@ -34,6 +44,12 @@ document.addEventListener("DOMContentLoaded", () => {
     fetch("/api/cat-a/clear-oos", { method: "POST" }).catch(() => {});
   }
 
+  // ✅ Hide device connection modal on startup
+  if (deviceConnectionModal) {
+    deviceConnectionModal.classList.add("hidden");
+    deviceConnectionModal.style.display = "none";
+  }
+
 
   function getRole(index) {
     const pair = Math.floor(index / 2) + 1;
@@ -50,6 +66,13 @@ document.addEventListener("DOMContentLoaded", () => {
   function showHomeScreen() {
     document.getElementById("cat-a-screen").classList.add("hidden");
     document.getElementById("home-screen").classList.remove("hidden");
+    
+    // ✅ Reset device connection state
+    alreadyConnectedSerials = [];
+    currentConnectingPair = null;
+    currentConnectingType = null;
+    mtNumbers = {};
+    pairs = [];
     
     fetch("/api/cat-a/clear-disconnect", { method: "POST" }).catch(() => {});
     fetch("/api/cat-a/clear-oos", { method: "POST" }).catch(() => {});
@@ -116,12 +139,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     mtNumbers = {};
     pairs = [];
+    
+    // ✅ CRITICAL: Reset device connection tracking on retest/reset
+    alreadyConnectedSerials = [];
+    currentConnectingPair = null;
+    currentConnectingType = null;
 
     for (let i = 1; i <= count; i++) {
       pairs.push({
         pairId: i,
         mo: null,
         mt: null,
+        moSerial: null,
+        mtSerial: null,
+        moSimPref: null,
+        mtSimPref: null,
         moConnected: false,
         mtConnected: false,
         saved: false
@@ -130,38 +162,200 @@ document.addEventListener("DOMContentLoaded", () => {
       container.innerHTML += `
         <div class="connection-row">
           <span class="pair-label">MO–MT Pair ${i}:</span>
-          <span id="mo-status-${i}" class="status">MO Not Connected</span>
-          <span id="mt-status-${i}" class="status">MT Not Connected</span>
-          <input type="text" class="mt-input" data-pair="${i}" placeholder="Enter MT${i} Phone Number"/>
-          <button class="primary small-btn" data-pair="${i}">Save</button>
+          <button class="primary small-btn connect-mo-btn" data-pair="${i}">Connect MO${i}</button>
+          <span id="mo-status-${i}" class="status">Not Connected</span>
+          <button class="primary small-btn connect-mt-btn" data-pair="${i}" disabled>Connect MT${i}</button>
+          <span id="mt-status-${i}" class="status">Not Connected</span>
+          <input type="text" class="mt-input" data-pair="${i}" placeholder="Enter MT${i} Phone Number" disabled/>
+          <button class="primary small-btn save-btn" data-pair="${i}" disabled>Save</button>
         </div>
       `;
     }
   }
 
-  document.body.addEventListener("click", (e) => {
-    if (!e.target.classList.contains("small-btn")) return;
+  let currentConnectingPair = null;
+  let currentConnectingType = null; // 'mo' or 'mt'
+  let alreadyConnectedSerials = [];
 
-    const pairId = Number(e.target.dataset.pair);
-    const input = document.querySelector(`input[data-pair="${pairId}"]`);
-
-    if (!input.value.match(/^[0-9]{8,15}$/)) {
-      alert(`Enter valid MT number for Pair ${pairId}`);
-      return;
+  // Handle Connect MO button clicks
+  document.body.addEventListener("click", async (e) => {
+    if (e.target.classList.contains("connect-mo-btn")) {
+      const pairId = Number(e.target.dataset.pair);
+      currentConnectingPair = pairId;
+      currentConnectingType = 'mo';
+      
+      // Show connection modal
+      deviceConnectionTitle.textContent = `Connect MO${pairId}`;
+      deviceInstruction.textContent = `Connect the MO${pairId} device and click 'Proceed' button`;
+      connectionStep1.classList.remove("hidden");
+      connectionStep2.classList.add("hidden");
+      deviceConnectionModal.classList.remove("hidden");
+      deviceConnectionModal.style.display = "flex";
     }
+    
+    // Handle Connect MT button clicks
+    if (e.target.classList.contains("connect-mt-btn")) {
+      const pairId = Number(e.target.dataset.pair);
+      currentConnectingPair = pairId;
+      currentConnectingType = 'mt';
+      
+      // Show connection modal
+      deviceConnectionTitle.textContent = `Connect MT${pairId}`;
+      deviceInstruction.textContent = `Connect the MT${pairId} device and click 'Proceed' button`;
+      connectionStep1.classList.remove("hidden");
+      connectionStep2.classList.add("hidden");
+      deviceConnectionModal.classList.remove("hidden");
+      deviceConnectionModal.style.display = "flex";
+    }
+    
+    // Handle Save button clicks
+    if (e.target.classList.contains("save-btn")) {
+      const pairId = Number(e.target.dataset.pair);
+      const input = document.querySelector(`input[data-pair="${pairId}"]`);
 
-    mtNumbers[pairId] = input.value;
-    pairs[pairId - 1].saved = true;
+      if (!input.value.match(/^[0-9]{8,15}$/)) {
+        alert(`Enter valid MT number for Pair ${pairId}`);
+        return;
+      }
 
-    alert(`MT number saved for Pair ${pairId}`);
+      mtNumbers[pairId] = input.value;
+      pairs[pairId - 1].saved = true;
+      
+      // Disable save button and input
+      e.target.disabled = true;
+      input.disabled = true;
 
-    if (pairs.every(p => p.saved)) {
-      showStep(3);
+      alert(`MT number saved for Pair ${pairId}`);
+
+      if (pairs.every(p => p.saved)) {
+        showStep(3);
+      }
     }
   });
 
-  // Status polling
+  // Handle Proceed button click
+  proceedBtn.addEventListener("click", async () => {
+    proceedBtn.disabled = true;
+    proceedBtn.textContent = "Detecting...";
+    
+    try {
+      // Call API to detect new device
+      const response = await fetch("/api/cat-a/detect-device", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          already_connected: alreadyConnectedSerials 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.status === "error" || data.device === "NotFound") {
+        alert("No device found. Connect the device properly and try again.");
+        proceedBtn.disabled = false;
+        proceedBtn.textContent = "Proceed";
+        return;
+      }
+      
+      // Show device info
+      document.getElementById("device-udid").textContent = data.device.serial;
+      document.getElementById("device-name").textContent = data.device.name;
+      document.getElementById("device-version").textContent = data.device.android_version;
+      
+      // Clear SIM preference selection
+      document.querySelectorAll('input[name="sim-pref"]').forEach(radio => {
+        radio.checked = false;
+      });
+      
+      // Show step 2
+      connectionStep1.classList.add("hidden");
+      connectionStep2.classList.remove("hidden");
+      
+      proceedBtn.disabled = false;
+      proceedBtn.textContent = "Proceed";
+      
+    } catch (error) {
+      console.error("Device detection error:", error);
+      alert("Error detecting device. Please try again.");
+      proceedBtn.disabled = false;
+      proceedBtn.textContent = "Proceed";
+    }
+  });
+
+  // Handle Confirm button click
+  confirmDeviceBtn.addEventListener("click", () => {
+    const selectedSim = document.querySelector('input[name="sim-pref"]:checked');
+    
+    if (!selectedSim) {
+      alert("Please select a SIM preference");
+      return;
+    }
+    
+    const serial = document.getElementById("device-udid").textContent;
+    const name = document.getElementById("device-name").textContent;
+    const simPref = parseInt(selectedSim.value);
+    
+    // Save device info to pair
+    const pair = pairs[currentConnectingPair - 1];
+    
+    if (currentConnectingType === 'mo') {
+      pair.moSerial = serial;
+      pair.mo = name;
+      pair.moSimPref = simPref;
+      pair.moConnected = true;
+      
+      // Update UI
+      const moStatus = document.getElementById(`mo-status-${currentConnectingPair}`);
+      moStatus.textContent = `${name} (SIM${simPref + 1})`;
+      moStatus.style.color = "#28a745";
+      
+      // Enable Connect MT button
+      const mtBtn = document.querySelector(`.connect-mt-btn[data-pair="${currentConnectingPair}"]`);
+      mtBtn.disabled = false;
+      
+      // Disable Connect MO button
+      const moBtn = document.querySelector(`.connect-mo-btn[data-pair="${currentConnectingPair}"]`);
+      moBtn.disabled = true;
+      
+    } else { // mt
+      pair.mtSerial = serial;
+      pair.mt = name;
+      pair.mtSimPref = simPref;
+      pair.mtConnected = true;
+      
+      // Update UI
+      const mtStatus = document.getElementById(`mt-status-${currentConnectingPair}`);
+      mtStatus.textContent = `${name} (SIM${simPref + 1})`;
+      mtStatus.style.color = "#28a745";
+      
+      // Enable phone number input and save button
+      const input = document.querySelector(`input[data-pair="${currentConnectingPair}"]`);
+      input.disabled = false;
+      
+      const saveBtn = document.querySelector(`.save-btn[data-pair="${currentConnectingPair}"]`);
+      saveBtn.disabled = false;
+      
+      // Disable Connect MT button
+      const mtBtn = document.querySelector(`.connect-mt-btn[data-pair="${currentConnectingPair}"]`);
+      mtBtn.disabled = true;
+    }
+    
+    // Add to already connected list
+    alreadyConnectedSerials.push(serial);
+    
+    // Close modal
+    deviceConnectionModal.classList.add("hidden");
+    deviceConnectionModal.style.display = "none";
+  });
+
+  // Status polling - ONLY for step 3 (during test execution)
   setInterval(async () => {
+    // Only poll when on step 3 (test execution screen)
+    const step3 = document.getElementById("cat-step-3");
+    if (!step3 || step3.classList.contains("hidden")) {
+      return;
+    }
+    
     try {
       const res = await fetch("/api/cat-a/status");
       const data = await res.json();
@@ -223,8 +417,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Device disconnection monitoring
   setInterval(async () => {
-    if (!testRunning) return;
-    
     const homeScreen = document.getElementById("home-screen");
     if (homeScreen && !homeScreen.classList.contains("hidden")) {
       return;
@@ -237,6 +429,9 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const res = await fetch("/api/cat-a/status");
       const data = await res.json();
+      
+      // Use backend test_running instead of frontend testRunning
+      if (!data.test_running) return;
       
       // Check if device disconnected during test
       if (data.device_disconnected === true && data.test_running === true) {
@@ -271,9 +466,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ✅ NEW: OOS monitoring interval
+  // ✅ OOS monitoring - now fully automated, no popup needed
   setInterval(async () => {
-    // Check both frontend flag AND don't require it for OOS (backend is source of truth)
     const homeScreen = document.getElementById("home-screen");
     if (homeScreen && !homeScreen.classList.contains("hidden")) return;
 
@@ -283,33 +477,64 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch("/api/cat-a/status");
       const data = await res.json();
 
-      // ✅ DEBUG: Use backend test_running as source of truth (not just frontend testRunning)
       const backendRunning = data.test_running === true;
-      
-      console.debug(`OOS check: oos_detected=${data.oos_detected}, test_running=${backendRunning}, frontend_testRunning=${testRunning}`);
 
+      // ✅ YOUR ORIGINAL CODE + POPUP WHEN STATE CHANGES
       if (data.oos_detected === true && backendRunning) {
-        const devices = data.oos_devices || [];
-        console.log("📵 OOS detected - test PAUSED:", devices);
-
-        // Sync frontend state with backend
-        testRunning = true;
-        testPaused = true;
-
-        // Update OOS modal content - no device names shown
-        oosDevicesList.textContent = "";
-
-        // Show OOS modal
-        oosModal.classList.remove("hidden");
-        oosModal.style.display = "flex";
-
-        // Switch buttons to paused state
-        pauseBtn.classList.add("hidden");
-        resumeBtn.classList.remove("hidden");
-        controlButtons.classList.remove("hidden");
-        startBtn.classList.add("hidden");
-        resetBtn.classList.add("hidden");
-        retestBtn.classList.add("hidden");
+        console.log("📵 OOS detected - auto-waiting for devices to come back online");
+        
+        // Show popup ONLY when OOS state changes from false → true
+        if (previousOosState === false) {
+          console.log("🔔 OOS state changed: false → true, showing alert");
+          previousOosState = true;  // Update state
+          
+          // Update modal message
+          const oosDevicesList = document.getElementById("oos-devices-list");
+          if (oosDevicesList) {
+            oosDevicesList.textContent = "A device has entered an Out of Service zone";
+          }
+          
+          // Show modal
+          if (oosModal) {
+            oosModal.style.display = "flex";
+            oosModal.classList.remove("hidden");
+          }
+          
+          // Play sound
+          try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.2);
+          } catch (e) {
+            console.log("Sound failed:", e);
+          }
+          
+          // Auto-dismiss after 4 seconds
+          setTimeout(() => {
+            if (oosModal) {
+              oosModal.style.display = "none";
+              oosModal.classList.add("hidden");
+            }
+            console.log("✅ OOS alert auto-dismissed");
+          }, 4000);
+        }
+      } else {
+        // Reset state when OOS is false
+        if (previousOosState === true) {
+          previousOosState = false;
+          console.log("✅ OOS cleared - state reset");
+        }
       }
     } catch (e) {
       console.error("OOS monitoring failed", e);
@@ -452,6 +677,11 @@ document.addEventListener("DOMContentLoaded", () => {
     pairs = [];
     testRunning = false;
     testPaused = false;
+    
+    // ✅ Reset device connection state
+    alreadyConnectedSerials = [];
+    currentConnectingPair = null;
+    currentConnectingType = null;
     
     startBtn.classList.remove("hidden");
     resetBtn.classList.remove("hidden");

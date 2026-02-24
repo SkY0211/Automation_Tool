@@ -163,6 +163,80 @@ def clear_oos():
             "message": str(e)
         }), 500
 
+# ✅ NEW: Device detection endpoint for manual connection flow
+@app.route('/api/cat-a/detect-device', methods=['POST'])
+def detect_device():
+    """Detect newly connected device (excluding already connected ones)"""
+    try:
+        data = request.json
+        already_connected = data.get('already_connected', [])
+        
+        import subprocess
+        import re
+        from backend.cat_a_tool.utils import get_device_name, get_android_version
+        from backend.cat_a_tool.logger import CustomLogger
+        
+        logger = CustomLogger("device_detection")
+        
+        # Get all connected devices
+        result = subprocess.run(["adb", "devices"], capture_output=True, text=True)
+        output = result.stdout
+        
+        logger.log(f"ADB devices output: {output}")
+        logger.log(f"Already connected: {already_connected}")
+        
+        # Parse device serials - skip the header line
+        lines = output.strip().split('\n')[1:]  # Skip "List of devices attached"
+        device_serials = []
+        
+        for line in lines:
+            line = line.strip()
+            if line and '\tdevice' in line:  # Only lines with "device" status
+                serial = line.split('\t')[0]
+                device_serials.append(serial)
+        
+        logger.log(f"Found devices: {device_serials}")
+        
+        # Filter out already connected devices
+        new_device = None
+        for device_serial in device_serials:
+            if device_serial not in already_connected:
+                new_device = device_serial
+                logger.log(f"New device found: {new_device}")
+                break
+        
+        if not new_device:
+            logger.log("No new device found")
+            return jsonify({
+                "status": "error",
+                "device": "NotFound",
+                "message": "No new device found"
+            }), 200
+        
+        # Get device info
+        device_name = get_device_name(new_device, logger)
+        android_version = get_android_version(new_device, logger)
+        
+        logger.log(f"Device info - Name: {device_name}, Version: {android_version}")
+        
+        return jsonify({
+            "status": "success",
+            "device": {
+                "serial": new_device,
+                "name": device_name,
+                "android_version": android_version
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in detect_device: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
 # =====================================================
 # FLASK RUNNER
 # =====================================================
