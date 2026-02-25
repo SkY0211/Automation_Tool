@@ -109,9 +109,24 @@ document.addEventListener("DOMContentLoaded", () => {
     step2.classList.add("hidden");
     step3.classList.add("hidden");
 
-    if (step === 1) step1.classList.remove("hidden");
-    if (step === 2) step2.classList.remove("hidden");
-    if (step === 3) step3.classList.remove("hidden");
+    const catInfoPanel = document.getElementById("cat-info-panel");
+    const catLayout = document.querySelector(".cat-layout");
+    
+    if (step === 1) {
+      step1.classList.remove("hidden");
+      if (catInfoPanel) catInfoPanel.style.visibility = "visible";
+      if (catLayout) catLayout.classList.remove("no-sidebar");
+    }
+    if (step === 2) {
+      step2.classList.remove("hidden");
+      if (catInfoPanel) catInfoPanel.style.visibility = "hidden";
+      if (catLayout) catLayout.classList.add("no-sidebar");
+    }
+    if (step === 3) {
+      step3.classList.remove("hidden");
+      if (catInfoPanel) catInfoPanel.style.visibility = "hidden";
+      if (catLayout) catLayout.classList.add("no-sidebar");
+    }
   }
 
   

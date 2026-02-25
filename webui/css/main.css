@@ -73,8 +73,38 @@ html, body {
 .cat-header {
     padding: 20px;
     display: flex;
-    gap: 20px;
+    justify-content: center;
     align-items: center;
+}
+
+.cat-header h2 {
+    margin: 0;
+}
+
+/* Back button at top-left corner */
+.back-button-top {
+    position: absolute;
+    top: 60px;
+    left: 20px;
+    z-index: 100;
+    padding: 8px 16px;
+    background: #0078d7;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.back-button-top:hover {
+    background: #005a9e;
+    transform: translateX(-2px);
+}
+
+.back-button-top:active {
+    transform: scale(0.98);
 }
 
 /* LAYOUT */
@@ -90,10 +120,24 @@ html, body {
     height: 100%;
 }
 
+/* Single column layout when sidebar is hidden (pages 2 & 3) */
+.cat-layout.no-sidebar {
+    grid-template-columns: 1fr;
+    gap: 0;
+}
+
 /* LEFT PANEL */
 .left-panel {
     border-right: 1px solid #ddd;
     padding: 20px;
+}
+
+/* Hide left panel when not visible */
+.cat-layout.no-sidebar .left-panel {
+    width: 0;
+    padding: 0;
+    border: none;
+    overflow: hidden;
 }
 
 .left-panel .subtitle {
@@ -364,4 +408,12 @@ progress::-webkit-progress-value {
 progress::-moz-progress-bar {
     background: linear-gradient(to right, #0078d4, #00b050);
     border-radius: 4px;
+}
+
+#pair-container {
+    position: absolute;
+    top: 120px;
+    left: 20px;
+    right: 20px;
+    z-index: 10;
 }

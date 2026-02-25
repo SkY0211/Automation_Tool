@@ -11,6 +11,11 @@ from backend.cat_a_tool.utils import get_latest_dir, get_parent_dir
 UI_LOG_BUFFER = []
 MAX_UI_LOGS = 300
 
+# ===============================
+# SHARED LOG FOLDER (GLOBAL)
+# ===============================
+_CURRENT_LOG_FOLDER = None
+
 
 class CustomLogger:
     def __init__(self, instance_name):
@@ -20,18 +25,24 @@ class CustomLogger:
 
     @staticmethod
     def get_latest_log_folder():
+        global _CURRENT_LOG_FOLDER
+        
         desktop = os.path.join(os.path.expanduser("~"), "Desktop")
         logs_dir = os.path.join(desktop, "Automation_Tool_Logs")
 
         os.makedirs(logs_dir, exist_ok=True)
 
-        existing = get_latest_dir(logs_dir)
-        if existing:
-            return existing
+        # If we already have a folder for this test session, use it
+        if _CURRENT_LOG_FOLDER and os.path.exists(_CURRENT_LOG_FOLDER):
+            return _CURRENT_LOG_FOLDER
 
+        # Create new folder with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         folder = os.path.join(logs_dir, timestamp)
         os.makedirs(folder, exist_ok=True)
+        
+        # Store it globally so all loggers use the same folder
+        _CURRENT_LOG_FOLDER = folder
         return folder
 
     def configure_logger(self):
@@ -78,6 +89,7 @@ class CustomLogger:
         noisy_keywords = [
             "Checking mCallState",
             "Polling",
+            "Fetching ServiceState",  # Filter repetitive service state checks
         ]
 
         if not any(k in message for k in noisy_keywords):
@@ -105,3 +117,8 @@ class CustomLogger:
 # ===============================
 def get_ui_logs():
     return UI_LOG_BUFFER.copy()
+
+def reset_log_folder():
+    """Reset the shared log folder so next test creates a new folder"""
+    global _CURRENT_LOG_FOLDER
+    _CURRENT_LOG_FOLDER = None

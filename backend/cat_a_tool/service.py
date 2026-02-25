@@ -304,6 +304,16 @@ def clear_oos_alert():
     cat_a_state["oos_devices"] = []
     return {"status": "success", "message": "OOS alert cleared"}
 
+def start_cat_a_service(config: dict):
+    def _run():
+        # ✅ Reset log folder for new test session
+        from backend.cat_a_tool.logger import reset_log_folder
+        reset_log_folder()
+        
+        # ... rest of test logic
+
+
+### Result
 
 # =====================================================
 # CAT-A SERVICE STARTER (WITH PAUSE/RESUME SUPPORT)
