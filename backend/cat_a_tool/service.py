@@ -252,23 +252,25 @@ def start_device_monitor():
 # =====================================================
 
 def pause_test():
-    """Pause the running test"""
+    """Pause the running test and cut ongoing call"""
     if cat_a_state["state"] == "RUNNING" and cat_a_state.get("test_running", False):
         cat_a_state["paused"] = True
         cat_a_state["state"] = "PAUSED"
         cat_a_state["message"] = "Test paused by user"
-        print("⏸️ TEST PAUSED")
+        cat_a_state["cut_call_on_pause"] = True  # Signal to cut call
+        print("⏸️ TEST PAUSED - Will cut call")
         return {"status": "success", "message": "Test paused"}
     else:
         return {"status": "error", "message": "No test is running"}
 
 
 def resume_test():
-    """Resume the paused test"""
+    """Resume the paused test from same iteration"""
     if cat_a_state["state"] == "PAUSED" and cat_a_state.get("test_running", False):
         cat_a_state["paused"] = False
         cat_a_state["state"] = "RUNNING"
         cat_a_state["message"] = "Test resumed"
+        cat_a_state["cut_call_on_pause"] = False  # Clear flag
         print("▶️ TEST RESUMED")
         return {"status": "success", "message": "Test resumed"}
     else:

@@ -171,6 +171,20 @@ class CallTester:
                                 if not self.all_devices_connected():
                                     raise Exception("Device Not Found!")
                                 
+                                # ✅ CHECK FOR PAUSE DURING ACTIVE CALL
+                                from backend.cat_a_tool.service import cat_a_state
+                                if cat_a_state.get("cut_call_on_pause", False):
+                                    self.logger.log("⏸️ PAUSE DETECTED - Cutting call immediately")
+                                    call_duration = (datetime.now() - call_rcv_time).total_seconds()
+                                    end_time = datetime.now().time().strftime("%H:%M:%S")
+                                    try:
+                                        self.end_call(self.mo)
+                                        self.end_call(self.mt)
+                                    except Exception as e:
+                                        self.logger.log(f"Error cutting call: {e}")
+                                    cat_a_state["cut_call_on_pause"] = False
+                                    return ("PAUSED", "Call cut on pause", start_time, end_time, call_duration)
+                                
                                 # ✅ CHECK FOR OOS DURING ACTIVE CALL
                                 mo_service = get_service_state(self.mo, self.logger)
                                 mt_service = get_service_state(self.mt, self.logger)
@@ -473,6 +487,19 @@ class CallTester:
                     raise Exception("Device Not Found!")
 
                 status, comment, s_time, e_time, c_duration = self.check_status(i, date)
+
+                # ✅ HANDLE PAUSED: Call was cut, restart same iteration
+                if status == "PAUSED":
+                    self.logger.log(f"⏸️ Call cut on iteration {i} - will restart this iteration after resume")
+                    # Wait for resume
+                    while cat_a_state.get("paused", False):
+                        time.sleep(1)
+                        if cat_a_state.get("stop_requested", False):
+                            progress_data["running"] = False
+                            return
+                    # After resume, continue to restart same iteration
+                    self.logger.log(f"▶️ Resuming - restarting iteration {i}")
+                    continue
 
                 # ✅ HANDLE OOS_RETRY: Don't save report, retry same iteration
                 if status == "OOS_RETRY":

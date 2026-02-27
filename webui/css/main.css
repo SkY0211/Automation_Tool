@@ -177,14 +177,15 @@ html, body {
 .status {
     padding: 6px 12px;
     border-radius: 4px;
-    background: #e74c3c;
+    background: #e74c3c;  /* Red for disconnected */
     color: white;
     font-weight: bold;
     font-size: 13px;
 }
 
 .status.connected {
-    background: #00b050;
+    background: #4CAF50;  /* Light green (Material Design Green) */
+    color: white;
 }
 
 /* EXECUTION */

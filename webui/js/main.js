@@ -322,7 +322,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // Update UI
       const moStatus = document.getElementById(`mo-status-${currentConnectingPair}`);
       moStatus.textContent = `${name} (SIM${simPref + 1})`;
-      moStatus.style.color = "#28a745";
+      moStatus.classList.add("connected");  // Adds CSS class
+      moStatus.style.color = "white";
       
       // Enable Connect MT button
       const mtBtn = document.querySelector(`.connect-mt-btn[data-pair="${currentConnectingPair}"]`);
@@ -341,7 +342,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // Update UI
       const mtStatus = document.getElementById(`mt-status-${currentConnectingPair}`);
       mtStatus.textContent = `${name} (SIM${simPref + 1})`;
-      mtStatus.style.color = "#28a745";
+      mtStatus.classList.add("connected");  // Adds CSS class
+      mtStatus.style.color = "white";
       
       // Enable phone number input and save button
       const input = document.querySelector(`input[data-pair="${currentConnectingPair}"]`);
@@ -759,7 +761,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }, 1000);
 
-  // Live logs
+  // Live logs (no auto-scroll)
   setInterval(async () => {
     const logBox = document.getElementById("log-box");
     if (!logBox) return;
@@ -769,9 +771,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const logs = await res.json();
 
       logBox.innerText = logs.join("\n");
-      logBox.scrollTop = logBox.scrollHeight;
+      // No auto-scroll - user controls scroll position manually
     } catch (e) {}
-  }, 1500);
+  }, 1000);
 
   // Auto-clear disconnect alerts on home screen
   setInterval(() => {

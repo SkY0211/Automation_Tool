@@ -89,7 +89,8 @@ class CustomLogger:
         noisy_keywords = [
             "Checking mCallState",
             "Polling",
-            "Fetching ServiceState",  # Filter repetitive service state checks
+            "Fetching ServiceState",
+            "Queue update slipped"  # Filter repetitive service state checks
         ]
 
         if not any(k in message for k in noisy_keywords):
