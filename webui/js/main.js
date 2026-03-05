@@ -784,4 +784,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }, 5000);
 
+  // Folder icon button - placeholder for opening output folder
+  const folderBtn = document.getElementById("open-output-folder");
+  if (folderBtn) {
+    folderBtn.addEventListener("click", () => {
+      // TODO: Connect to backend to open folder
+      console.log("Open output folder clicked - will be connected later");
+      alert("This will open the output folder (to be connected)");
+    });
+  }
+
 });

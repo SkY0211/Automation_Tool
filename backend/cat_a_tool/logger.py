@@ -28,22 +28,28 @@ class CustomLogger:
         global _CURRENT_LOG_FOLDER
         
         desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-        logs_dir = os.path.join(desktop, "Automation_Tool_Logs")
-
-        os.makedirs(logs_dir, exist_ok=True)
+        main_folder_name = "Automation_Tool_Logs"
+        main_dir = os.path.join(desktop, main_folder_name)
+        os.makedirs(main_dir, exist_ok=True)
 
         # If we already have a folder for this test session, use it
         if _CURRENT_LOG_FOLDER and os.path.exists(_CURRENT_LOG_FOLDER):
             return _CURRENT_LOG_FOLDER
 
-        # Create new folder with timestamp
+        # Create new timestamp folder
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        folder = os.path.join(logs_dir, timestamp)
-        os.makedirs(folder, exist_ok=True)
+        session_folder = os.path.join(main_dir, timestamp)
         
-        # Store it globally so all loggers use the same folder
-        _CURRENT_LOG_FOLDER = folder
-        return folder
+        # Create logs and reports subfolders
+        logs_folder = os.path.join(session_folder, "logs")
+        reports_folder = os.path.join(session_folder, "reports")
+        
+        os.makedirs(logs_folder, exist_ok=True)
+        os.makedirs(reports_folder, exist_ok=True)
+        
+        # Store logs folder path globally
+        _CURRENT_LOG_FOLDER = logs_folder
+        return logs_folder
 
     def configure_logger(self):
         logger_name = f"CAT_A_{self.instance_id}"
@@ -123,3 +129,24 @@ def reset_log_folder():
     """Reset the shared log folder so next test creates a new folder"""
     global _CURRENT_LOG_FOLDER
     _CURRENT_LOG_FOLDER = None
+
+def get_reports_folder():
+    """Get the reports folder for the current test session"""
+    global _CURRENT_LOG_FOLDER
+    
+    if _CURRENT_LOG_FOLDER:
+        # logs folder is at: ...Automation_Tool_Logs/TIMESTAMP/logs
+        # reports folder is at: ...Automation_Tool_Logs/TIMESTAMP/reports
+        session_folder = os.path.dirname(_CURRENT_LOG_FOLDER)
+        reports_folder = os.path.join(session_folder, "reports")
+        os.makedirs(reports_folder, exist_ok=True)
+        return reports_folder
+    
+    # Fallback - create new session
+    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+    main_dir = os.path.join(desktop, "Automation_Tool_Logs")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    session_folder = os.path.join(main_dir, timestamp)
+    reports_folder = os.path.join(session_folder, "reports")
+    os.makedirs(reports_folder, exist_ok=True)
+    return reports_folder

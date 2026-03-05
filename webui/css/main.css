@@ -231,6 +231,41 @@ html, body {
     word-break: break-word;
 }
 
+/* Folder icon button */
+.folder-icon-btn {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: transform 0.2s;
+    position: relative;
+}
+
+.folder-icon-btn:hover {
+    transform: scale(1.15);
+}
+
+.folder-icon-btn:active {
+    transform: scale(1.0);
+}
+
+/* Tooltip styling */
+.folder-icon-btn:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: -35px;
+    right: 0;
+    background: #333;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
 /* BUTTONS */
 button {
     padding: 8px 16px;

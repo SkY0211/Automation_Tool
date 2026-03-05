@@ -72,10 +72,16 @@ class CallTester:
         self.instance_id = f"{self.mo_label}_to_{self.mt_label}"
         self.logger = CustomLogger(self.instance_id)
 
-        self.workbook_file_path = os.path.join(
-            self.current_dir_path, f"temp_report_{self.instance_id}.xlsx"
-        )
+        # ✅ Get reports folder from logger (same session as logs)
+        from backend.cat_a_tool.logger import get_reports_folder
+        reports_folder = get_reports_folder()
+        
+        # ✅ Save Excel files with device serial numbers
+        self.mo_excel_path = os.path.join(reports_folder, f"MO1-{self.mo}.xlsx")
+        self.mt_excel_path = os.path.join(reports_folder, f"MT1-{self.mt}.xlsx")
+        self.combined_excel_path = os.path.join(reports_folder, f"temp_report_{self.instance_id}.xlsx")
 
+        # ✅ Create Excel workbook with headers
         self.workbook = openpyxl.Workbook()
         self.mo_sheet = self.workbook.active
         self.mo_sheet.title = "MO Report"
@@ -83,7 +89,7 @@ class CallTester:
 
         self.mo_sheet.append(self.columns)
         self.mt_sheet.append(self.columns)
-        self.workbook.save(self.workbook_file_path)
+        self.workbook.save(self.combined_excel_path)
 
     # --------------------------------------------------
     # ALL EXISTING METHODS BELOW ARE UNCHANGED
@@ -541,9 +547,37 @@ class CallTester:
                 ] + self.mt_cell_info + self.mt_gps
 
                 # ---- SAVE REPORTS ----
+                # ✅ Save to combined workbook
                 self.mo_sheet.append(mo_report)
                 self.mt_sheet.append(mt_report)
-                self.workbook.save(self.workbook_file_path)
+                self.workbook.save(self.combined_excel_path)
+                
+                # ✅ Save individual device Excel files (real-time)
+                # MO Excel file
+                if not os.path.exists(self.mo_excel_path):
+                    mo_wb = openpyxl.Workbook()
+                    mo_ws = mo_wb.active
+                    mo_ws.append(self.columns)
+                    mo_ws.append(mo_report)
+                    mo_wb.save(self.mo_excel_path)
+                else:
+                    mo_wb = openpyxl.load_workbook(self.mo_excel_path)
+                    mo_ws = mo_wb.active
+                    mo_ws.append(mo_report)
+                    mo_wb.save(self.mo_excel_path)
+                
+                # MT Excel file
+                if not os.path.exists(self.mt_excel_path):
+                    mt_wb = openpyxl.Workbook()
+                    mt_ws = mt_wb.active
+                    mt_ws.append(self.columns)
+                    mt_ws.append(mt_report)
+                    mt_wb.save(self.mt_excel_path)
+                else:
+                    mt_wb = openpyxl.load_workbook(self.mt_excel_path)
+                    mt_ws = mt_wb.active
+                    mt_ws.append(mt_report)
+                    mt_wb.save(self.mt_excel_path)
 
                 self.logger.log("Submitting Call report")
 
