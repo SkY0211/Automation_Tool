@@ -605,6 +605,9 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("✅ Logs cleared for new test");
       }
       
+      // ✅ Navigate to step 3 (Test Execution Screen)
+      showStep(3);
+      
       startBtn.classList.add("hidden");
       resetBtn.classList.add("hidden");
       retestBtn.classList.add("hidden");

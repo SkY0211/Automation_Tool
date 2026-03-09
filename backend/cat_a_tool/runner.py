@@ -14,14 +14,14 @@ def start_cat_a_test(config):
         # -------------------------------------------------
         # Normalize call duration (SECONDS SAFETY FIX)
         # -------------------------------------------------
-        call_duration = int(config["call_duration"])
+        call_duration = config["call_duration"] * 60  # int(config["call_duration"])
 
         # If UI accidentally sends minutes (1, 2, 5), convert to seconds
-        if call_duration <= 10:
-            logger.log(
-                f"call_duration looks like minutes ({call_duration}), converting to seconds"
-            )
-            call_duration = call_duration * 60
+        # if call_duration <= 10:
+        #     logger.log(
+        #         f"call_duration looks like minutes ({call_duration}), converting to seconds"
+            # )
+        # call_duration = call_duration * 60
 
         logger.log(f"FINAL call_duration USED (seconds): {call_duration}")
 

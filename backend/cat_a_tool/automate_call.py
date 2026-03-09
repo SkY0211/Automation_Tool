@@ -53,9 +53,12 @@ class CallTester:
         self.rcv_barrier = barriers[1]
         self.end_barrier = barriers[2]
 
-        self.current_dir_path = get_latest_dir(
-            os.path.join(get_parent_dir(), 'reports')
-        )
+        # ✅ Get reports folder from logger (same session as logs)
+        from backend.cat_a_tool.logger import get_reports_folder
+        reports_folder = get_reports_folder()
+        
+        # Use reports folder for all file paths
+        self.current_dir_path = reports_folder
 
         self.mo_file_name = f"{self.mo_label}-{self.mo}.csv"
         self.mt_file_name = f"{self.mt_label}-{self.mt}.csv"
@@ -71,10 +74,6 @@ class CallTester:
 
         self.instance_id = f"{self.mo_label}_to_{self.mt_label}"
         self.logger = CustomLogger(self.instance_id)
-
-        # ✅ Get reports folder from logger (same session as logs)
-        from backend.cat_a_tool.logger import get_reports_folder
-        reports_folder = get_reports_folder()
         
         # ✅ Save Excel files with device serial numbers
         self.mo_excel_path = os.path.join(reports_folder, f"MO1-{self.mo}.xlsx")
