@@ -577,13 +577,34 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // ✅ Validate call duration is >= 0.1 (minimum 6 seconds)
+    const durationValue = Number(callDuration.value);
+    if (durationValue < 0.1) {
+      alert("Call Duration must be at least 0.1 minutes (6 seconds)");
+      return;
+    }
+
+    // ✅ Validate iterations is >= 1
+    const iterValue = Number(iterations.value);
+    if (iterValue < 1) {
+      alert("Number of Iterations must be at least 1");
+      return;
+    }
+
+    // ✅ Validate call delay is >= 0
+    const delayValue = Number(callDelay.value);
+    if (delayValue < 0) {
+      alert("Call Delay cannot be negative");
+      return;
+    }
+
     const payload = {
       test_type: testType.value,
       device_count: Number(deviceCount.value),
       mt_number: mtNumbers[1] || "",
-      iterations: Number(iterations.value),
-      call_duration: Number(callDuration.value),
-      call_delay: Number(callDelay.value)
+      iterations: iterValue,
+      call_duration: durationValue,
+      call_delay: delayValue
     };
 
     try {
