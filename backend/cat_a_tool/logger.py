@@ -144,10 +144,20 @@ def get_reports_folder():
         return reports_folder
     
     # Fallback - create new session
-    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-    main_dir = os.path.join(desktop, "Automation_Tool_Logs")
+    programdata = os.environ.get('PROGRAMDATA', 'C:\\ProgramData')
+    main_dir = os.path.join(programdata, "Automation Tool")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     session_folder = os.path.join(main_dir, timestamp)
     reports_folder = os.path.join(session_folder, "reports")
     os.makedirs(reports_folder, exist_ok=True)
     return reports_folder
+def get_current_session_folder():
+    """Get the current test session folder (parent of logs and reports)"""
+    global _CURRENT_LOG_FOLDER
+    
+    if _CURRENT_LOG_FOLDER:
+        # Return the parent folder (timestamp folder)
+        return os.path.dirname(_CURRENT_LOG_FOLDER)
+    
+    # No active session
+    return None

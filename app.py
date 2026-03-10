@@ -25,7 +25,7 @@ from backend.cat_a_tool.service import (
     resume_test,
     stop_test,
     clear_disconnect_alert,
-    clear_oos_alert          # ✅ NEW: OOS alert function
+    clear_oos_alert
 )
 
 from backend.cat_a_tool.logger import get_ui_logs
@@ -77,10 +77,6 @@ def api_start_cat_a():
 
 @app.route("/api/cat-a/status", methods=["GET"])
 def api_cat_a_status():
-    # ✅ CRITICAL FIX: DO NOT call update_cat_a_device_state()
-    # It uses alphabetical order which breaks connection order!
-    # The device monitor in service.py already updates cat_a_state correctly
-    
     return jsonify({
         "state": cat_a_state.get("state", "IDLE"),
         "message": cat_a_state.get("message", ""),
@@ -97,7 +93,6 @@ def api_cat_a_status():
         "disconnected_device": cat_a_state.get("disconnected_device"),
         "current_iteration": cat_a_state.get("current_iteration", 0),
         "total_iterations": cat_a_state.get("total_iterations", 0),
-        # ✅ NEW: OOS fields
         "oos_detected": cat_a_state.get("oos_detected", False),
         "oos_devices": cat_a_state.get("oos_devices", [])
     })
@@ -150,7 +145,6 @@ def clear_disconnect():
             "message": str(e)
         }), 500
 
-# ✅ NEW: OOS alert endpoint
 @app.route('/api/cat-a/clear-oos', methods=['POST'])
 def clear_oos():
     """Clear OOS (Out of Service) alert"""
@@ -163,7 +157,39 @@ def clear_oos():
             "message": str(e)
         }), 500
 
-# ✅ NEW: Device detection endpoint for manual connection flow
+# ✅ NEW: Open output folder endpoint
+@app.route('/api/cat-a/open-folder', methods=['POST'])
+def open_output_folder():
+    """Open the current test session output folder in Windows Explorer"""
+    try:
+        from backend.cat_a_tool.logger import get_current_session_folder
+        import subprocess
+        
+        session_folder = get_current_session_folder()
+        
+        if session_folder and os.path.exists(session_folder):
+            # Open folder in Windows Explorer
+            subprocess.Popen(f'explorer "{session_folder}"')
+            return jsonify({
+                "status": "success",
+                "message": "Folder opened",
+                "path": session_folder
+            }), 200
+        else:
+            return jsonify({
+                "status": "error",
+                "message": "No active test session"
+            }), 404
+            
+    except Exception as e:
+        print(f"Error opening folder: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
 @app.route('/api/cat-a/detect-device', methods=['POST'])
 def detect_device():
     """Detect newly connected device (excluding already connected ones)"""
@@ -186,12 +212,12 @@ def detect_device():
         logger.log(f"Already connected: {already_connected}")
         
         # Parse device serials - skip the header line
-        lines = output.strip().split('\n')[1:]  # Skip "List of devices attached"
+        lines = output.strip().split('\n')[1:]
         device_serials = []
         
         for line in lines:
             line = line.strip()
-            if line and '\tdevice' in line:  # Only lines with "device" status
+            if line and '\tdevice' in line:
                 serial = line.split('\t')[0]
                 device_serials.append(serial)
         

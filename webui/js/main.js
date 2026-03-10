@@ -626,6 +626,11 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("✅ Logs cleared for new test");
       }
       
+      // ✅ Show folder button when test starts
+      if (folderBtn) {
+        folderBtn.style.display = "block";
+      }
+      
       // ✅ Navigate to step 3 (Test Execution Screen)
       showStep(3);
       
@@ -724,6 +729,11 @@ document.addEventListener("DOMContentLoaded", () => {
     currentConnectingPair = null;
     currentConnectingType = null;
     
+    // ✅ Hide folder button on retest
+    if (folderBtn) {
+      folderBtn.style.display = "none";
+    }
+    
     startBtn.classList.remove("hidden");
     resetBtn.classList.remove("hidden");
     retestBtn.classList.remove("hidden");
@@ -813,10 +823,25 @@ document.addEventListener("DOMContentLoaded", () => {
   // Folder icon button - placeholder for opening output folder
   const folderBtn = document.getElementById("open-output-folder");
   if (folderBtn) {
-    folderBtn.addEventListener("click", () => {
-      // TODO: Connect to backend to open folder
-      console.log("Open output folder clicked - will be connected later");
-      alert("This will open the output folder (to be connected)");
+    // ✅ Hide button initially (show only after test starts)
+    folderBtn.style.display = "none";
+    
+    folderBtn.addEventListener("click", async () => {
+      try {
+        const response = await fetch("/api/cat-a/open-folder", {
+          method: "POST"
+        });
+        const data = await response.json();
+        
+        if (data.status === "success") {
+          console.log("Opened folder:", data.path);
+        } else {
+          alert(data.message || "Could not open folder");
+        }
+      } catch (error) {
+        console.error("Error opening folder:", error);
+        alert("Failed to open output folder");
+      }
     });
   }
 
