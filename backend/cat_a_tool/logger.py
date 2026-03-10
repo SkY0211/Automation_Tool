@@ -27,9 +27,10 @@ class CustomLogger:
     def get_latest_log_folder():
         global _CURRENT_LOG_FOLDER
         
-        desktop = os.path.join(os.path.expanduser("~"), "Desktop")
-        main_folder_name = "Automation_Tool_Logs"
-        main_dir = os.path.join(desktop, main_folder_name)
+        # ✅ Use standard Windows application data path
+        programdata = os.environ.get('PROGRAMDATA', 'C:\\ProgramData')
+        main_folder_name = "Automation Tool"
+        main_dir = os.path.join(programdata, main_folder_name)
         os.makedirs(main_dir, exist_ok=True)
 
         # If we already have a folder for this test session, use it
