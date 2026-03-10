@@ -703,8 +703,9 @@ class CallTester:
             mo_df_final = stats(self.mo_df, self.logger)
             mt_df_final = stats(self.mt_df, self.logger)
 
-            mo_df_final.to_csv(self.mo_file_path, index=False)
-            mt_df_final.to_csv(self.mt_file_path, index=False)
+            # ✅ CSV files removed - we only save Excel reports now
+            # mo_df_final.to_csv(self.mo_file_path, index=False)
+            # mt_df_final.to_csv(self.mt_file_path, index=False)
 
             self.logger.log("CAT-A EXECUTION FINISHED")
         except Exception as f_err:
