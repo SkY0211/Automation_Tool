@@ -733,7 +733,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Progress monitoring with test completion detection
-  let lastBackendTestRunning = false;
+  let lastProgressRunning = false;
 
   setInterval(async () => {
     try {
@@ -751,11 +751,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const statusRes = await fetch("/api/cat-a/status");
       const statusData = await statusRes.json();
       
-      const backendTestRunning = statusData.test_running === true;
+      const progressRunning = progressData.running === true;
       
-      // Detect when test stops running on backend OR reaches 100%
-      if (testRunning && (!backendTestRunning || progressData.percent >= 100) && lastBackendTestRunning) {
-        console.log("✅ Test ended - backend test_running became false or progress reached 100%");
+      // ✅ DETECT COMPLETION: Progress changed from running to not running
+      if (lastProgressRunning === true && progressRunning === false) {
+        console.log("✅ Test completed - progress running changed from true to false");
         
         testRunning = false;
         testPaused = false;
@@ -768,17 +768,19 @@ document.addEventListener("DOMContentLoaded", () => {
         // Hide control buttons
         controlButtons.classList.add("hidden");
         
-        // Only show completion alert if NOT a disconnect
-        if (!statusData.device_disconnected) {
-          if (statusData.state === "COMPLETED" || progressData.percent >= 100) {
-            alert("Test completed successfully!");
-          } else if (statusData.state === "FAILED") {
-            alert("Test failed: " + (statusData.message || "Unknown error"));
+        // ✅ Show completion alert IMMEDIATELY
+        setTimeout(() => {
+          if (!statusData.device_disconnected) {
+            if (progressData.percent >= 100) {
+              alert("Test completed successfully!");
+            } else if (statusData.state === "FAILED") {
+              alert("Test failed: " + (statusData.message || "Unknown error"));
+            }
           }
-        }
+        }, 100);  // Small delay to ensure UI updates first
       }
       
-      lastBackendTestRunning = backendTestRunning;
+      lastProgressRunning = progressRunning;
 
     } catch (e) {
       console.error("Progress polling error:", e);
