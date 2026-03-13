@@ -639,6 +639,7 @@ document.addEventListener("DOMContentLoaded", () => {
       retestBtn.classList.add("hidden");
       
       controlButtons.classList.remove("hidden");
+      controlButtons.style.display = "flex";
       pauseBtn.classList.remove("hidden");
       resumeBtn.classList.add("hidden");
 
@@ -701,6 +702,7 @@ document.addEventListener("DOMContentLoaded", () => {
         resetBtn.classList.remove("hidden");
         retestBtn.classList.remove("hidden");
         controlButtons.classList.add("hidden");
+        controlButtons.style.display = "none";
         
         console.log("Test stopped");
       } else {
@@ -738,6 +740,7 @@ document.addEventListener("DOMContentLoaded", () => {
     resetBtn.classList.remove("hidden");
     retestBtn.classList.remove("hidden");
     controlButtons.classList.add("hidden");
+    controlButtons.style.display = "none";
     
     showStep(1);
   });
@@ -777,6 +780,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Hide control buttons
         controlButtons.classList.add("hidden");
+        controlButtons.style.display = "none";
         
         // ✅ Show completion alert IMMEDIATELY
         setTimeout(() => {
