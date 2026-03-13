@@ -157,19 +157,21 @@ def clear_oos():
             "message": str(e)
         }), 500
 
-# ✅ NEW: Open output folder endpoint
 @app.route('/api/cat-a/open-folder', methods=['POST'])
 def open_output_folder():
     """Open the current test session output folder in Windows Explorer"""
     try:
         from backend.cat_a_tool.logger import get_current_session_folder
         import subprocess
-        
+
         session_folder = get_current_session_folder()
-        
+
         if session_folder and os.path.exists(session_folder):
-            # Open folder in Windows Explorer
-            subprocess.Popen(f'explorer "{session_folder}"')
+            # ✅ FIXED: CREATE_NO_WINDOW suppresses console popup
+            subprocess.Popen(
+                f'explorer "{session_folder}"',
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
             return jsonify({
                 "status": "success",
                 "message": "Folder opened",
@@ -180,7 +182,7 @@ def open_output_folder():
                 "status": "error",
                 "message": "No active test session"
             }), 404
-            
+
     except Exception as e:
         print(f"Error opening folder: {e}")
         import traceback
@@ -196,41 +198,44 @@ def detect_device():
     try:
         data = request.json
         already_connected = data.get('already_connected', [])
-        
+
         import subprocess
         import re
         from backend.cat_a_tool.utils import get_device_name, get_android_version
         from backend.cat_a_tool.logger import CustomLogger
-        
+
         logger = CustomLogger("device_detection")
-        
-        # Get all connected devices
-        result = subprocess.run(["adb", "devices"], capture_output=True, text=True)
+
+        # ✅ FIXED: CREATE_NO_WINDOW suppresses console popup
+        result = subprocess.run(
+            ["adb", "devices"],
+            capture_output=True,
+            text=True,
+            creationflags=subprocess.CREATE_NO_WINDOW
+        )
         output = result.stdout
-        
+
         logger.log(f"ADB devices output: {output}")
         logger.log(f"Already connected: {already_connected}")
-        
-        # Parse device serials - skip the header line
+
         lines = output.strip().split('\n')[1:]
         device_serials = []
-        
+
         for line in lines:
             line = line.strip()
             if line and '\tdevice' in line:
                 serial = line.split('\t')[0]
                 device_serials.append(serial)
-        
+
         logger.log(f"Found devices: {device_serials}")
-        
-        # Filter out already connected devices
+
         new_device = None
         for device_serial in device_serials:
             if device_serial not in already_connected:
                 new_device = device_serial
                 logger.log(f"New device found: {new_device}")
                 break
-        
+
         if not new_device:
             logger.log("No new device found")
             return jsonify({
@@ -238,13 +243,12 @@ def detect_device():
                 "device": "NotFound",
                 "message": "No new device found"
             }), 200
-        
-        # Get device info
+
         device_name = get_device_name(new_device, logger)
         android_version = get_android_version(new_device, logger)
-        
+
         logger.log(f"Device info - Name: {device_name}, Version: {android_version}")
-        
+
         return jsonify({
             "status": "success",
             "device": {
@@ -253,7 +257,7 @@ def detect_device():
                 "android_version": android_version
             }
         }), 200
-        
+
     except Exception as e:
         print(f"Error in detect_device: {e}")
         import traceback
