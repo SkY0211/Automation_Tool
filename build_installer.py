@@ -4,78 +4,85 @@ import shutil
 import sys
 
 # =====================================================
-# PROJECT CONFIGURATION
+# BUILD CONFIGURATION
 # =====================================================
-APP_NAME = "PhoneTest Suite "
+
+APP_NAME = "AutomationTool"
 APP_VERSION = "1.0.0"
 MAIN_FILE = "app.py"
 DIST_DIR = "dist"
-BUILD_DIR = "build"
-
-# Inno Setup compiler path (adjust if needed)
-INNO_COMPILER = r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
 # =====================================================
-# NUITKA BUILD COMMAND
+# NUITKA BUILD COMMAND (Simplified to avoid YAML bug)
 # =====================================================
+
 NUITKA_COMMAND = [
-    sys.executable,  # Use current Python interpreter
+    sys.executable,
     "-m",
     "nuitka",
     "--standalone",
     "--onefile",
-    "--windows-disable-console",
-    "--follow-imports",
+    "--windows-console-mode=disable",  # Updated syntax
     "--include-data-dir=webui=webui",
     "--include-data-dir=backend=backend",
     "--enable-plugin=pywebview",
-    "--lto=yes",
+    "--nofollow-import-to=pytest",     # Exclude test frameworks
+    "--nofollow-import-to=unittest",
     "--assume-yes-for-downloads",
     f"--output-dir={DIST_DIR}",
     MAIN_FILE
 ]
 
+# =====================================================
+# MAIN BUILD PROCESS
+# =====================================================
 
-def check_dependencies():
-    """Check if required tools are installed"""
-    print("Checking dependencies...")
+def main():
+    print("\n" + "=" * 60)
+    print(f"🚀 {APP_NAME.upper()} - BUILD SCRIPT")
+    print("=" * 60)
+    print(f"App Name: {APP_NAME}")
+    print(f"Version: {APP_VERSION}")
+    print(f"Main File: {MAIN_FILE}")
+    print("=" * 60)
     
-    # Check if app.py exists
+    # Check required files
+    print("\n" + "=" * 60)
+    print("CHECKING DEPENDENCIES")
+    print("=" * 60)
+    
     if not os.path.exists(MAIN_FILE):
-        print(f"❌ Error: {MAIN_FILE} not found!")
-        print("   Make sure you're running this script from the project root directory.")
-        return False
+        print(f"❌ ERROR: {MAIN_FILE} not found!")
+        input("Press Enter to exit...")
+        sys.exit(1)
+    print(f"✅ {MAIN_FILE} found")
     
-    # Check if backend folder exists
-    if not os.path.exists("backend"):
-        print("❌ Error: backend folder not found!")
-        return False
-    
-    # Check if webui folder exists
     if not os.path.exists("webui"):
-        print("❌ Error: webui folder not found!")
-        return False
+        print("❌ ERROR: webui directory not found!")
+        input("Press Enter to exit...")
+        sys.exit(1)
+    print("✅ webui directory found")
     
-    # Check if nuitka is installed
-    try:
-        subprocess.run([sys.executable, "-m", "nuitka", "--version"], 
-                      capture_output=True, check=True)
-        print("✅ Nuitka is installed")
-    except subprocess.CalledProcessError:
-        print("❌ Error: Nuitka is not installed!")
-        print("   Install it with: pip install nuitka")
-        return False
+    if not os.path.exists("backend"):
+        print("❌ ERROR: backend directory not found!")
+        input("Press Enter to exit...")
+        sys.exit(1)
+    print("✅ backend directory found")
     
-    print("✅ All dependencies checked")
-    return True
-
-
-def clean_build_dirs():
-    """Clean previous build directories"""
-    print("\nCleaning previous build directories...")
+    print("\n✅ All dependencies checked\n")
     
-    dirs_to_clean = [BUILD_DIR, DIST_DIR, f"{MAIN_FILE.replace('.py', '.build')}",
-                     f"{MAIN_FILE.replace('.py', '.dist')}", f"{MAIN_FILE.replace('.py', '.onefile-build')}"]
+    # Clean old builds
+    print("=" * 60)
+    print("CLEANING PREVIOUS BUILD DIRECTORIES")
+    print("=" * 60)
+    
+    dirs_to_clean = [
+        f"{APP_NAME}.dist",
+        f"{APP_NAME}.onefile-build",
+        f"{APP_NAME}.build",
+        "build",
+        "dist"
+    ]
     
     for dir_name in dirs_to_clean:
         if os.path.exists(dir_name):
@@ -83,176 +90,73 @@ def clean_build_dirs():
                 shutil.rmtree(dir_name)
                 print(f"✅ Removed {dir_name}")
             except Exception as e:
-                print(f"⚠️  Warning: Could not remove {dir_name}: {e}")
+                print(f"⚠️  Could not remove {dir_name}: {e}")
     
-    # Clean .pyo and .pyc files
-    print("Cleaning cache files...")
-    for root, dirs, files in os.walk('.'):
-        for file in files:
-            if file.endswith(('.pyc', '.pyo')):
-                try:
-                    os.remove(os.path.join(root, file))
-                except:
-                    pass
+    print("✅ Cleanup completed\n")
     
-    print("✅ Cleanup completed")
-
-
-def build_exe():
-    """Build EXE using Nuitka"""
-    print("\n" + "=" * 60)
+    # Build EXE
+    print("=" * 60)
     print("BUILDING EXE WITH NUITKA")
     print("=" * 60)
-    print("This may take several minutes...")
-    print()
+    print("This will take 10-30 minutes depending on your system...")
+    print("Please be patient and do not close this window.\n")
     
     try:
-        subprocess.run(NUITKA_COMMAND, check=True)
-        print("\n✅ EXE build completed successfully!")
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"\n❌ EXE build failed with error code {e.returncode}")
-        return False
-    except Exception as e:
-        print(f"\n❌ Unexpected error during build: {e}")
-        return False
-
-
-def create_inno_script():
-    """Generate Inno Setup script"""
-    print("\n" + "=" * 60)
-    print("GENERATING INNO SETUP SCRIPT")
-    print("=" * 60)
-    
-    exe_name = f"{MAIN_FILE.replace('.py', '.exe')}"
-    
-    iss_script = f"""
-; Automation Tool - Inno Setup Script
-; Auto-generated by build_installer.py
-
-[Setup]
-AppName={APP_NAME}
-AppVersion={APP_VERSION}
-AppPublisher=Your Company Name
-DefaultDirName={{autopf}}\\{APP_NAME}
-DefaultGroupName={APP_NAME}
-OutputDir=.
-OutputBaseFilename={APP_NAME}_Setup_v{APP_VERSION}
-Compression=lzma2/max
-SolidCompression=yes
-ArchitecturesInstallIn64BitMode=x64
-WizardStyle=modern
-SetupIconFile=
-
-[Files]
-Source: "{DIST_DIR}\\{exe_name}"; DestDir: "{{app}}"; Flags: ignoreversion
-
-[Icons]
-Name: "{{group}}\\{APP_NAME}"; Filename: "{{app}}\\{exe_name}"; Comment: "Launch {APP_NAME}"
-Name: "{{group}}\\Uninstall {APP_NAME}"; Filename: "{{uninstallexe}}"
-Name: "{{commondesktop}}\\{APP_NAME}"; Filename: "{{app}}\\{exe_name}"; Tasks: desktopicon
-
-[Tasks]
-Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"
-
-[Run]
-Filename: "{{app}}\\{exe_name}"; Description: "Launch {APP_NAME}"; Flags: nowait postinstall skipifsilent
-"""
-    
-    script_path = "installer.iss"
-    with open(script_path, "w", encoding="utf-8") as f:
-        f.write(iss_script)
-    
-    print(f"✅ Inno Setup script created: {script_path}")
-    return script_path
-
-
-def build_installer():
-    """Build installer using Inno Setup"""
-    print("\n" + "=" * 60)
-    print("BUILDING INSTALLER WITH INNO SETUP")
-    print("=" * 60)
-    
-    if not os.path.exists(INNO_COMPILER):
-        print(f"❌ Inno Setup not found at: {INNO_COMPILER}")
-        print("\nTo create the installer:")
-        print("1. Download Inno Setup from: https://jrsoftware.org/isdl.php")
-        print("2. Install it to the default location")
-        print("3. Run this script again")
-        print("\nOr manually compile 'installer.iss' with Inno Setup")
-        return False
-    
-    try:
-        subprocess.run([INNO_COMPILER, "installer.iss"], check=True)
-        print("\n✅ Installer created successfully!")
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"\n❌ Installer build failed with error code {e.returncode}")
-        return False
-    except Exception as e:
-        print(f"\n❌ Unexpected error during installer build: {e}")
-        return False
-
-
-def main():
-    """Main build process"""
-    print("=" * 60)
-    print("AUTOMATION TOOL - BUILD SCRIPT")
-    print("=" * 60)
-    print(f"App Name: {APP_NAME}")
-    print(f"Version: {APP_VERSION}")
-    print(f"Main File: {MAIN_FILE}")
-    print("=" * 60)
-    
-    # Step 1: Check dependencies
-    if not check_dependencies():
-        print("\n❌ Build aborted due to missing dependencies")
+        # Run Nuitka with real-time output
+        process = subprocess.Popen(
+            NUITKA_COMMAND,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            bufsize=1
+        )
+        
+        # Print output in real-time
+        for line in process.stdout:
+            print(line, end='')
+        
+        process.wait()
+        
+        if process.returncode != 0:
+            print(f"\n❌ Nuitka build failed with error code {process.returncode}")
+            print("\nPossible solutions:")
+            print("1. Update Nuitka: pip install --upgrade nuitka")
+            print("2. Try without anti-bloat plugin")
+            print("3. Check if all dependencies are installed")
+            input("\nPress Enter to exit...")
+            sys.exit(1)
+        
+        exe_path = os.path.join(DIST_DIR, f"{APP_NAME}.exe")
+        if os.path.exists(exe_path):
+            print(f"\n✅ EXE build completed successfully!")
+            
+            # Show file size
+            size_bytes = os.path.getsize(exe_path)
+            size_mb = size_bytes / (1024 * 1024)
+            
+            print("\n" + "=" * 60)
+            print("BUILD SUMMARY")
+            print("=" * 60)
+            print(f"✅ EXE File: {exe_path}")
+            print(f"   Size: {size_mb:.2f} MB")
+            print("=" * 60)
+            print("\n✅ Build process completed successfully!")
+            print("=" * 60 + "\n")
+            input("Press Enter to exit...")
+        else:
+            print(f"\n❌ EXE file not found at: {exe_path}")
+            input("Press Enter to exit...")
+            sys.exit(1)
+            
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Build cancelled by user (Ctrl+C pressed)")
+        input("Press Enter to exit...")
         sys.exit(1)
-    
-    # Step 2: Clean previous builds
-    clean_build_dirs()
-    
-    # Step 3: Build EXE
-    if not build_exe():
-        print("\n❌ Build process failed at EXE creation")
+    except Exception as e:
+        print(f"\n❌ Build failed: {e}")
+        print("\nTry updating Nuitka: pip install --upgrade nuitka")
+        input("Press Enter to exit...")
         sys.exit(1)
-    
-    # Step 4: Create Inno Setup script
-    create_inno_script()
-    
-    # Step 5: Build installer (optional - only if Inno Setup is available)
-    build_installer()
-    
-    # Final summary
-    print("\n" + "=" * 60)
-    print("BUILD SUMMARY")
-    print("=" * 60)
-    
-    exe_path = os.path.join(DIST_DIR, MAIN_FILE.replace('.py', '.exe'))
-    if os.path.exists(exe_path):
-        print(f"✅ EXE File: {exe_path}")
-        print(f"   Size: {os.path.getsize(exe_path) / (1024*1024):.2f} MB")
-    
-    installer_path = f"{APP_NAME}_Setup_v{APP_VERSION}.exe"
-    if os.path.exists(installer_path):
-        print(f"✅ Installer: {installer_path}")
-        print(f"   Size: {os.path.getsize(installer_path) / (1024*1024):.2f} MB")
-    else:
-        print(f"⚠️  Installer not created (Inno Setup required)")
-        print(f"   Manual compile: installer.iss")
-    
-    print("\n✅ Build process completed successfully!")
-    print("=" * 60)
-
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n\n❌ Build cancelled by user")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n\n❌ Unexpected error: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    main()
