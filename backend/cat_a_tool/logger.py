@@ -86,8 +86,28 @@ class CustomLogger:
 
         return logger
 
-    def log(self, message, error=None, level=logging.INFO):
+    def log(self, message, error=None, level=None):
         message = str(message)
+
+        # ✅ Auto-detect level from message content if not explicitly provided
+        if level is None:
+            msg_lower = message.lower()
+            if any(k in msg_lower for k in [
+                "error", "failed", "fail", "exception", "not found",
+                "invalid", "call dropped", "device disconnected", "abort"
+            ]):
+                level = logging.ERROR
+            elif any(k in msg_lower for k in [
+                "warning", "warn", "⚠️", "oos", "skipped", "skip",
+                "disconnect", "paused", "stopped", "still oos", "retry"
+            ]):
+                level = logging.WARNING
+            elif any(k in msg_lower for k in [
+                "debug", "fetching", "checking", "polling", "collecting"
+            ]):
+                level = logging.DEBUG
+            else:
+                level = logging.INFO
 
         # Always log to file + console
         self.logger.log(level, message)
@@ -97,11 +117,13 @@ class CustomLogger:
             "Checking mCallState",
             "Polling",
             "Fetching ServiceState",
-            "Queue update slipped"  # Filter repetitive service state checks
+            "Queue update skipped"  # Filter repetitive service state checks
         ]
 
         if not any(k in message for k in noisy_keywords):
-            UI_LOG_BUFFER.append(message)
+            level_tag = logging.getLevelName(level)
+            ui_message = f"| {level_tag} | {message}"
+            UI_LOG_BUFFER.append(ui_message)
             if len(UI_LOG_BUFFER) > MAX_UI_LOGS:
                 UI_LOG_BUFFER.pop(0)
 
