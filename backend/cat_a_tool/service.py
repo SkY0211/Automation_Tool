@@ -103,7 +103,8 @@ def detect_devices():
             ["adb", "devices"],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
+            creationflags=subprocess.CREATE_NO_WINDOW
         )
 
         lines = result.stdout.strip().split("\n")[1:]

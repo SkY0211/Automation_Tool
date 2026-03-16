@@ -107,7 +107,7 @@ class CallTester:
     def get_call_state(self, udid):
         self.logger.log(f"Checking mCallState <{udid}>", )
         # Execute the adb command to get the telephony registry information
-        output = subprocess.check_output(["adb", "-s", udid, "shell", "dumpsys", "telephony.registry"], text=True)
+        output = subprocess.check_output(["adb", "-s", udid, "shell", "dumpsys", "telephony.registry"], text=True, creationflags=subprocess.CREATE_NO_WINDOW)
 
         # Use regular expression to find the lines containing "mCallState" and its value
         call_state_lines = re.findall(r'mCallState=\d', output)
@@ -121,19 +121,19 @@ class CallTester:
         self.dial_barrier.wait()
         self.logger.log("Dialing Number ...", )
         cmd_start_call = f"adb -s {self.mo} shell am start -a android.intent.action.CALL -d 'tel:{self.phone_number}'"
-        subprocess.run(cmd_start_call, shell=False, check=True)
+        subprocess.run(cmd_start_call, shell=False, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
 
     def receive_call(self, ):
         self.rcv_barrier.wait()
         self.logger.log("Receiving Call...", )
         subprocess.run(
             f"adb -s {self.mt} shell input keyevent {KEYCODE_CALL}",
-            shell=False, check=True)
+            shell=False, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
 
     def end_call(self, udid):
         self.logger.log("Ending Call...", )
         cmd_end_call = f"adb -s {udid} shell input keyevent {KEYCODE_ENDCALL}"
-        subprocess.run(cmd_end_call, shell=False, check=True)
+        subprocess.run(cmd_end_call, shell=False, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
 
     def get_mt_cell_info(self):
         # Get the cell info of MT

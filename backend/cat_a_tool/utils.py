@@ -64,7 +64,8 @@ def restart_device(udid, custom_logger):
     try:
         subprocess.run(
             ["adb", "-s", udid, "reboot"],
-            timeout=10
+            timeout=10,
+            creationflags=subprocess.CREATE_NO_WINDOW
         )
         custom_logger.log(f"Restarting device: {udid}")
     except Exception as e:
@@ -78,7 +79,7 @@ def toggle_data(device, state: int, custom_logger):
             "adb", "-s", device, "shell",
             "svc", "data", "enable" if state == 1 else "disable"
         ]
-        subprocess.run(cmd, check=True, timeout=10)
+        subprocess.run(cmd, check=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
     except Exception as e:
         custom_logger.log("Failed to toggle Mobile Data", e)
         CallException(e, sys)
@@ -91,7 +92,7 @@ def toggle_wifi(device, state: int, custom_logger):
             "adb", "-s", device, "shell",
             "svc", "wifi", "enable" if state == 1 else "disable"
         ]
-        subprocess.run(cmd, check=True, timeout=10)
+        subprocess.run(cmd, check=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
     except Exception as e:
         custom_logger.log("Failed to toggle Wi-Fi", e)
         CallException(e, sys)
@@ -128,7 +129,8 @@ def get_service_state(udid, custom_logger):
             ["adb", "-s", udid, "shell", "dumpsys", "telephony.registry"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            creationflags=subprocess.CREATE_NO_WINDOW
         )
 
         output = result.stdout
@@ -153,13 +155,15 @@ def get_cell_info(udid: str, sim_slot: int, custom_logger):
         operator = subprocess.check_output(
             ["adb", "-s", udid, "shell", "getprop", "gsm.operator.alpha"],
             text=True,
-            timeout=10
+            timeout=10,
+            creationflags=subprocess.CREATE_NO_WINDOW
         ).strip()
 
         output = subprocess.check_output(
             ["adb", "-s", udid, "shell", "dumpsys", "telephony.registry"],
             text=True,
-            timeout=10
+            timeout=10,
+            creationflags=subprocess.CREATE_NO_WINDOW
         )
 
         cell_lines = [l for l in output.splitlines() if l.strip().startswith("mCellInfo")]
@@ -198,7 +202,8 @@ def get_location(udid, custom_logger):
             ["adb", "-s", udid, "shell", "dumpsys", "location"],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
+            creationflags=subprocess.CREATE_NO_WINDOW
         )
 
         for line in result.stdout.splitlines():
@@ -273,7 +278,7 @@ def load_from_json(json_file_path):
 def get_android_version(udid, custom_logger):
     command = ['adb', '-s', udid, 'shell', 'getprop', 'ro.build.version.release']
     try:
-        output = subprocess.check_output(command, universal_newlines=True)
+        output = subprocess.check_output(command, universal_newlines=True, creationflags=subprocess.CREATE_NO_WINDOW)
         return output.strip()
     except subprocess.CalledProcessError as e:
         CallException(e, sys)
@@ -284,7 +289,7 @@ def get_android_version(udid, custom_logger):
 def get_device_name(udid, custom_logger):
     command = ['adb', '-s', udid, 'shell', 'getprop', 'ro.product.model']
     try:
-        output = subprocess.check_output(command, universal_newlines=True)
+        output = subprocess.check_output(command, universal_newlines=True, creationflags=subprocess.CREATE_NO_WINDOW)
         return output.strip()
     except subprocess.CalledProcessError as e:
         CallException(e, sys)
@@ -311,7 +316,7 @@ def create_folders():
 
 def count_connected_devices(custom_logger=None):
     try:
-        output = subprocess.check_output(["adb", "devices"]).decode("utf-8")
+        output = subprocess.check_output(["adb", "devices"], creationflags=subprocess.CREATE_NO_WINDOW).decode("utf-8")
         lines = output.splitlines()
 
         # Find the line index where the list of devices starts
