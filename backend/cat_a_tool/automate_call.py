@@ -187,7 +187,8 @@ class CallTester:
                                         self.end_call(self.mt)
                                     except Exception as e:
                                         self.logger.log(f"Error cutting call: {e}")
-                                    cat_a_state["cut_call_on_pause"] = False
+                                    # ✅ Decrement counter — clears to 0 only after all pairs processed
+                                    cat_a_state["cut_call_on_pause"] = max(0, cat_a_state.get("cut_call_on_pause", 1) - 1)
                                     return ("PAUSED", "Call cut on pause", start_time, end_time, call_duration)
                                 
                                 # ✅ CHECK FOR OOS DURING ACTIVE CALL
@@ -495,6 +496,20 @@ class CallTester:
         from backend.cat_a_tool.progress_state import progress_data
         from backend.cat_a_tool.service import cat_a_state
 
+        # ✅ In multi-pair mode, coordinator in runner.py owns progress & running flag
+        def _set_running_false():
+            if not getattr(self, "_multi_pair_mode", False):
+                _set_running_false()
+
+        def _set_progress(current, total):
+            if not getattr(self, "_multi_pair_mode", False):
+                progress_data["current"] = current
+                progress_data["percent"] = int((current / total) * 100)
+            else:
+                # Notify coordinator of this pair's current iteration
+                if hasattr(self, "_pair_progress_callback"):
+                    self._pair_progress_callback(current)
+
         progress_data["total"] = self.itr
         progress_data["current"] = 0
         progress_data["percent"] = 0
@@ -511,20 +526,20 @@ class CallTester:
                     # Check if stop was requested during pause
                     if cat_a_state.get("stop_requested", False):
                         self.logger.log("⏹️ Test stopped during pause")
-                        progress_data["running"] = False
+                        _set_running_false()
                         return
 
                 # ✅ NEW: Check for stop request
                 if cat_a_state.get("stop_requested", False):
                     self.logger.log("⏹️ Test stopped by user")
-                    progress_data["running"] = False
+                    _set_running_false()
                     return
 
                 # ✅ NEW: Check for device disconnection
                 if cat_a_state.get("device_disconnected", False):
                     self.logger.log(f"⚠️ Device disconnected: {cat_a_state.get('disconnected_device')}")
                     # Don't automatically continue - wait for user action
-                    progress_data["running"] = False
+                    _set_running_false()
                     cat_a_state["state"] = "FAILED"
                     cat_a_state["message"] = f"Device {cat_a_state.get('disconnected_device')} disconnected"
                     return
@@ -566,7 +581,7 @@ class CallTester:
                     while cat_a_state.get("paused", False):
                         time.sleep(1)
                         if cat_a_state.get("stop_requested", False):
-                            progress_data["running"] = False
+                            _set_running_false()
                             return
                     # After resume, continue to restart same iteration
                     self.logger.log(f"▶️ Resuming - restarting iteration {i}")
@@ -582,7 +597,7 @@ class CallTester:
                 # ✅ HANDLE OOS_ABORT: Test was stopped/changed during OOS wait
                 if status == "OOS_ABORT":
                     self.logger.log(f"⚠️ OOS abort: {comment}")
-                    progress_data["running"] = False
+                    _set_running_false()
                     return
 
                 # --------------------------------------------------
@@ -672,8 +687,7 @@ class CallTester:
                     self.logger.log(f"Queue update skipped: {q_err}")
 
                 # ---- PROGRESS UPDATE ----
-                progress_data["current"] = i
-                progress_data["percent"] = int((i / self.itr) * 100)
+                _set_progress(i, self.itr)
 
                 i += 1
 
@@ -711,9 +725,8 @@ class CallTester:
         except Exception as f_err:
             self.logger.log(f"Finalization error: {f_err}")
 
-        progress_data["current"] = self.itr
-        progress_data["percent"] = 100
-        progress_data["running"] = False
+        _set_progress(self.itr, self.itr)
+        _set_running_false()
 
         self.logger.log("CAT-A EXECUTION FINISHED")
 

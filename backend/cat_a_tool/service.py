@@ -258,7 +258,8 @@ def pause_test():
         cat_a_state["paused"] = True
         cat_a_state["state"] = "PAUSED"
         cat_a_state["message"] = "Test paused by user"
-        cat_a_state["cut_call_on_pause"] = True  # Signal to cut call
+        # ✅ Set to num_pairs so every pair must decrement it before it clears
+        cat_a_state["cut_call_on_pause"] = cat_a_state.get("num_pairs", 1)
         print("⏸️ TEST PAUSED - Will cut call")
         return {"status": "success", "message": "Test paused"}
     else:
@@ -327,7 +328,7 @@ def start_cat_a_service(config: dict):
             reset_log_folder()
 
             # ✅ CRITICAL: Set test_running FIRST
-            cat_a_state["test_id"] = cat_a_state.get("test_id", 0) + 1  # NEW unique ID per run
+            cat_a_state["test_id"] = cat_a_state.get("test_id", 0) + 1
             cat_a_state["test_running"] = True
             cat_a_state["paused"] = False
             cat_a_state["stop_requested"] = False
@@ -335,54 +336,47 @@ def start_cat_a_service(config: dict):
             cat_a_state["disconnected_device"] = None
             cat_a_state["oos_detected"] = False
             cat_a_state["oos_devices"] = []
-            
-            my_test_id = cat_a_state["test_id"]  # capture this run's ID
+
+            my_test_id = cat_a_state["test_id"]
             print(f"🔒 Test started: test_running = TRUE (test_id={my_test_id})")
 
-            # Safety guards
-            if not cat_a_state["mo_connected"]:
-                cat_a_state["state"] = "FAILED"
-                cat_a_state["message"] = "MO device not connected"
-                cat_a_state["test_running"] = False
-                print("❌ MO NOT CONNECTED")
-                return
+            # ✅ Get pairs from config (multi-pair support)
+            ui_pairs = config.get("pairs", [])
 
-            if not cat_a_state["mt_connected"]:
-                cat_a_state["state"] = "FAILED"
-                cat_a_state["message"] = "MT device not connected"
-                cat_a_state["test_running"] = False
-                print("❌ MT NOT CONNECTED")
-                return
+            # Fallback to single-pair if no pairs sent
+            if not ui_pairs:
+                ui_pairs = [{
+                    "pair_id": 1,
+                    "mo_serial": cat_a_state.get("mo_serial"),
+                    "mt_serial": cat_a_state.get("mt_serial"),
+                    "mt_number": config.get("mt_number", "")
+                }]
 
-            if not config.get("mt_number"):
-                cat_a_state["state"] = "FAILED"
-                cat_a_state["message"] = "MT phone number not saved"
-                cat_a_state["test_running"] = False
-                print("❌ MT NUMBER MISSING")
-                return
+            # ✅ Validate all pairs
+            for p in ui_pairs:
+                if not p.get("mo_serial"):
+                    cat_a_state["state"] = "FAILED"
+                    cat_a_state["message"] = f"MO device not connected for Pair {p['pair_id']}"
+                    cat_a_state["test_running"] = False
+                    print(f"❌ MO NOT CONNECTED for Pair {p['pair_id']}")
+                    return
+                if not p.get("mt_serial"):
+                    cat_a_state["state"] = "FAILED"
+                    cat_a_state["message"] = f"MT device not connected for Pair {p['pair_id']}"
+                    cat_a_state["test_running"] = False
+                    print(f"❌ MT NOT CONNECTED for Pair {p['pair_id']}")
+                    return
+                if not p.get("mt_number"):
+                    cat_a_state["state"] = "FAILED"
+                    cat_a_state["message"] = f"MT phone number missing for Pair {p['pair_id']}"
+                    cat_a_state["test_running"] = False
+                    print(f"❌ MT NUMBER MISSING for Pair {p['pair_id']}")
+                    return
 
-            if not cat_a_state.get("mo_serial") or not cat_a_state.get("mt_serial"):
-                cat_a_state["state"] = "FAILED"
-                cat_a_state["message"] = "MO/MT serial not available"
-                cat_a_state["test_running"] = False
-                return
-
-            mapped_config = {
-                "test_type": config["test_type"],
-                "mt_number": config["mt_number"],
-                "iterations": config["iterations"],
-                "call_duration": config["call_duration"],
-                "call_delay": config["call_delay"],
-                "mo_serial": cat_a_state["mo_serial"],
-                "mt_serial": cat_a_state["mt_serial"],
-                "test_id": my_test_id,   # pass unique ID into runner
-            }
-
-            # ✅ LOCK the MO/MT serials at the moment test starts
-            # detect_devices() will use these locked values — never connection_order which can shift
-            cat_a_state["locked_mo_serial"] = cat_a_state["mo_serial"]
-            cat_a_state["locked_mt_serial"] = cat_a_state["mt_serial"]
-            print(f"🔒 LOCKED: MO={cat_a_state['locked_mo_serial']}  MT={cat_a_state['locked_mt_serial']}")
+            # ✅ Lock MO/MT serials for disconnect detection (use pair 1 for backward compat)
+            cat_a_state["locked_mo_serial"] = ui_pairs[0]["mo_serial"]
+            cat_a_state["locked_mt_serial"] = ui_pairs[0]["mt_serial"]
+            print(f"🔒 LOCKED Pair1: MO={cat_a_state['locked_mo_serial']}  MT={cat_a_state['locked_mt_serial']}")
 
             cat_a_state["total_iterations"] = config["iterations"]
             cat_a_state["current_iteration"] = 0
@@ -390,20 +384,33 @@ def start_cat_a_service(config: dict):
             cat_a_state["message"] = "CAT-A execution started"
             cat_a_state["progress"] = 0
 
-            print(f"📱 Using MO: {cat_a_state['mo_serial']}")
-            print(f"📱 Using MT: {cat_a_state['mt_serial']}")
+            # ✅ Build per-pair configs and start all pairs
+            pair_configs = []
+            for p in ui_pairs:
+                mapped_config = {
+                    "test_type": config["test_type"],
+                    "mt_number": p["mt_number"],
+                    "iterations": config["iterations"],
+                    "call_duration": config["call_duration"],
+                    "call_delay": config["call_delay"],
+                    "mo_serial": p["mo_serial"],
+                    "mt_serial": p["mt_serial"],
+                    "mo_label": f"MO{p['pair_id']}",
+                    "mt_label": f"MT{p['pair_id']}",
+                    "pair_id": p["pair_id"],
+                    "test_id": my_test_id,
+                }
+                pair_configs.append(mapped_config)
+                print(f"📱 Pair {p['pair_id']}: MO={p['mo_serial']} MT={p['mt_serial']}")
+
+            # ✅ Store number of active pairs for pause handling
+            cat_a_state["num_pairs"] = len(pair_configs)
+
             print("=" * 60)
 
-            # ✅ CRITICAL: Start test (this runs in background thread)
-            start_cat_a_test(mapped_config)
+            # ✅ Start all pairs concurrently
+            start_cat_a_test(pair_configs)
 
-            # ✅ IMPORTANT: Don't set test_running = False here!
-            # The test is still running in the background thread
-            # It will be set to False when:
-            # 1. Test completes naturally (in progress checker)
-            # 2. User stops test (in stop_test())
-            # 3. Device disconnects (in detect_devices())
-            
             print("✅ TEST FINISHED: test_running = FALSE")
             print("=" * 60)
 
@@ -411,10 +418,8 @@ def start_cat_a_service(config: dict):
             cat_a_state["state"] = "FAILED"
             cat_a_state["message"] = str(e)
             cat_a_state["test_running"] = False
-            
             cat_a_state["device_disconnected"] = False
             cat_a_state["disconnected_device"] = None
-            
             print("=" * 60)
             print("❌ CAT-A ERROR:", e)
             print("=" * 60)

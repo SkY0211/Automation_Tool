@@ -604,7 +604,13 @@ document.addEventListener("DOMContentLoaded", () => {
       mt_number: mtNumbers[1] || "",
       iterations: iterValue,
       call_duration: durationValue,
-      call_delay: delayValue
+      call_delay: delayValue,
+      pairs: pairs.map(p => ({
+        pair_id: p.pairId,
+        mo_serial: p.moSerial,
+        mt_serial: p.mtSerial,
+        mt_number: mtNumbers[p.pairId] || ""
+      }))
     };
 
     try {
