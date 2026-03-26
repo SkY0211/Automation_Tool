@@ -14,7 +14,7 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 # =====================================================
-# BACKEND IMPORTS (SINGLE SOURCE) 
+# CAT-A BACKEND IMPORTS (unchanged)
 # =====================================================
 
 from backend.cat_a_tool.service import (
@@ -29,6 +29,20 @@ from backend.cat_a_tool.service import (
 )
 
 from backend.cat_a_tool.logger import get_ui_logs
+
+# =====================================================
+# CAT-F BACKEND IMPORTS (new)
+# =====================================================
+
+from backend.cat_f_tool.service import (
+    start_cat_f_service,
+    cat_f_state,
+    pause_cat_f_test,
+    resume_cat_f_test,
+    stop_cat_f_test,
+    get_current_session_folder as get_cat_f_session_folder,
+)
+from backend.cat_f_tool.service import get_ui_logs as get_cat_f_logs
 
 # =====================================================
 # RESOURCE PATH (FOR EXE / NUITKA)
@@ -63,7 +77,7 @@ def index():
     return send_from_directory(WEBUI_DIR, "index.html")
 
 # =====================================================
-# CAT-A API ENDPOINTS (SINGLE, CLEAN SET)
+# CAT-A API ENDPOINTS (unchanged)
 # =====================================================
 
 @app.route("/api/cat-a/start", methods=["POST"])
@@ -114,10 +128,6 @@ def api_cat_a_devices():
 def cat_a_progress():
     return jsonify(progress_data)
 
-# =====================================================
-# PAUSE/RESUME/STOP ENDPOINTS
-# =====================================================
-
 @app.route('/api/cat-a/pause', methods=['POST'])
 def pause_cat_a_test():
     result = pause_test()
@@ -135,78 +145,50 @@ def stop_cat_a_test():
 
 @app.route('/api/cat-a/clear-disconnect', methods=['POST'])
 def clear_disconnect():
-    """Clear device disconnection alert"""
     try:
         result = clear_disconnect_alert()
         return jsonify(result), 200
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/cat-a/clear-oos', methods=['POST'])
 def clear_oos():
-    """Clear OOS (Out of Service) alert"""
     try:
         result = clear_oos_alert()
         return jsonify(result), 200
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/cat-a/open-folder', methods=['POST'])
 def open_output_folder():
-    """Open the current test session output folder in Windows Explorer"""
     try:
         from backend.cat_a_tool.logger import get_current_session_folder
         import subprocess
-
         session_folder = get_current_session_folder()
-
         if session_folder and os.path.exists(session_folder):
-            # ✅ FIXED: CREATE_NO_WINDOW suppresses console popup
             subprocess.Popen(
                 f'explorer "{session_folder}"',
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
-            return jsonify({
-                "status": "success",
-                "message": "Folder opened",
-                "path": session_folder
-            }), 200
+            return jsonify({"status": "success", "message": "Folder opened", "path": session_folder}), 200
         else:
-            return jsonify({
-                "status": "error",
-                "message": "No active test session"
-            }), 404
-
+            return jsonify({"status": "error", "message": "No active test session"}), 404
     except Exception as e:
         print(f"Error opening folder: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/cat-a/detect-device', methods=['POST'])
 def detect_device():
-    """Detect newly connected device (excluding already connected ones)"""
     try:
         data = request.json
         already_connected = data.get('already_connected', [])
-
         import subprocess
         import re
         from backend.cat_a_tool.utils import get_device_name, get_android_version
         from backend.cat_a_tool.logger import CustomLogger
-
         logger = CustomLogger("device_detection")
-
-        # ✅ FIXED: CREATE_NO_WINDOW suppresses console popup
         result = subprocess.run(
             ["adb", "devices"],
             capture_output=True,
@@ -214,58 +196,105 @@ def detect_device():
             creationflags=subprocess.CREATE_NO_WINDOW
         )
         output = result.stdout
-
         logger.log(f"ADB devices output: {output}")
         logger.log(f"Already connected: {already_connected}")
-
         lines = output.strip().split('\n')[1:]
         device_serials = []
-
         for line in lines:
             line = line.strip()
             if line and '\tdevice' in line:
                 serial = line.split('\t')[0]
                 device_serials.append(serial)
-
         logger.log(f"Found devices: {device_serials}")
-
         new_device = None
         for device_serial in device_serials:
             if device_serial not in already_connected:
                 new_device = device_serial
                 logger.log(f"New device found: {new_device}")
                 break
-
         if not new_device:
             logger.log("No new device found")
-            return jsonify({
-                "status": "error",
-                "device": "NotFound",
-                "message": "No new device found"
-            }), 200
-
+            return jsonify({"status": "error", "device": "NotFound", "message": "No new device found"}), 200
         device_name = get_device_name(new_device, logger)
         android_version = get_android_version(new_device, logger)
-
         logger.log(f"Device info - Name: {device_name}, Version: {android_version}")
-
         return jsonify({
             "status": "success",
-            "device": {
-                "serial": new_device,
-                "name": device_name,
-                "android_version": android_version
-            }
+            "device": {"serial": new_device, "name": device_name, "android_version": android_version}
         }), 200
-
     except Exception as e:
         print(f"Error in detect_device: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# =====================================================
+# CAT-F API ENDPOINTS (new)
+# =====================================================
+
+@app.route("/api/cat-f/start", methods=["POST"])
+def api_start_cat_f():
+    config = request.json
+    print("=" * 60)
+    print("CAT-F START API HIT:", config)
+    print("=" * 60)
+    result = start_cat_f_service(config)
+    return jsonify(result)
+
+@app.route("/api/cat-f/status", methods=["GET"])
+def api_cat_f_status():
+    return jsonify({
+        "state":               cat_f_state.get("state", "IDLE"),
+        "message":             cat_f_state.get("message", ""),
+        "progress":            cat_f_state.get("progress", 0),
+        "test_running":        cat_f_state.get("test_running", False),
+        "paused":              cat_f_state.get("paused", False),
+        "current_iteration":   cat_f_state.get("current_iteration", 0),
+        "total_iterations":    cat_f_state.get("total_iterations", 0),
+        "mo_port":             cat_f_state.get("mo_port"),
+        "mt_port":             cat_f_state.get("mt_port"),
+        "test_type":           cat_f_state.get("test_type"),
+        "device_disconnected": cat_f_state.get("device_disconnected", False),
+        "disconnected_device": cat_f_state.get("disconnected_device"),
+        "error":               cat_f_state.get("error"),
+    })
+
+@app.route("/api/cat-f/logs", methods=["GET"])
+def api_cat_f_logs():
+    return jsonify(get_cat_f_logs())
+
+@app.route("/api/cat-f/pause", methods=["POST"])
+def api_pause_cat_f():
+    result = pause_cat_f_test()
+    return jsonify(result), 200 if result["status"] == "success" else 400
+
+@app.route("/api/cat-f/resume", methods=["POST"])
+def api_resume_cat_f():
+    result = resume_cat_f_test()
+    return jsonify(result), 200 if result["status"] == "success" else 400
+
+@app.route("/api/cat-f/stop", methods=["POST"])
+def api_stop_cat_f():
+    result = stop_cat_f_test()
+    return jsonify(result), 200 if result["status"] == "success" else 400
+
+@app.route("/api/cat-f/open-folder", methods=["POST"])
+def open_cat_f_output_folder():
+    try:
+        import subprocess
+        session_folder = get_cat_f_session_folder()
+        if session_folder and os.path.exists(session_folder):
+            subprocess.Popen(
+                f'explorer "{session_folder}"',
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            return jsonify({"status": "success", "message": "Folder opened", "path": session_folder}), 200
+        return jsonify({"status": "error", "message": "No active test session"}), 404
+    except Exception as e:
+        print(f"Error opening CAT-F folder: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # =====================================================
 # FLASK RUNNER
@@ -288,10 +317,10 @@ if __name__ == "__main__":
     print("🚀 AUTOMATION TOOL STARTING")
     print("=" * 60)
 
-    # 🔥 START DEVICE MONITOR ONCE
+    # Start device monitor (CAT-A)
     start_device_monitor()
 
-    # 🔥 START FLASK IN BACKGROUND
+    # Start Flask in background
     flask_thread = threading.Thread(target=start_flask, daemon=True)
     flask_thread.start()
 
@@ -299,7 +328,7 @@ if __name__ == "__main__":
     print("✅ Device monitor started")
     print("=" * 60)
 
-    # 🔥 START DESKTOP WINDOW
+    # Start desktop window
     webview.create_window(
         title="Automation Tool – Integration Dashboard",
         url="http://127.0.0.1:5000",

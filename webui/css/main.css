@@ -177,14 +177,14 @@ html, body {
 .status {
     padding: 6px 12px;
     border-radius: 4px;
-    background: #e74c3c;  /* Red for disconnected */
+    background: #e74c3c;
     color: white;
     font-weight: bold;
     font-size: 13px;
 }
 
 .status.connected {
-    background: #4CAF50;  /* Light green (Material Design Green) */
+    background: #4CAF50;
     color: white;
 }
 
@@ -250,7 +250,6 @@ html, body {
     transform: scale(1.0);
 }
 
-/* Tooltip styling */
 .folder-icon-btn:hover::after {
     content: attr(title);
     position: absolute;
@@ -296,37 +295,12 @@ button:disabled {
     font-size: 12px;
 }
 
-.primary {
-    background: #0078d4;
-    color: white;
-}
-
-.secondary {
-    background: #e0e0e0;
-    color: #333;
-}
-
-.info {
-    background: #00bcd4;
-    color: white;
-}
-
-.success {
-    background: #00b050;
-    color: white;
-}
-
-/* NEW: Warning button (for Pause) */
-.warning {
-    background: #ff9800;
-    color: white;
-}
-
-/* NEW: Danger button (for Stop) */
-.danger {
-    background: #e74c3c;
-    color: white;
-}
+.primary   { background: #0078d4; color: white; }
+.secondary { background: #e0e0e0; color: #333; }
+.info      { background: #00bcd4; color: white; }
+.success   { background: #00b050; color: white; }
+.warning   { background: #ff9800; color: white; }
+.danger    { background: #e74c3c; color: white; }
 
 /* ACTION ROW */
 .action-row {
@@ -353,7 +327,7 @@ button:disabled {
     width: 220px;
 }
 
-/* NEW: MODAL STYLES */
+/* MODAL STYLES */
 .modal {
     position: fixed;
     top: 0;
@@ -377,14 +351,8 @@ button:disabled {
 }
 
 @keyframes modalSlideIn {
-    from {
-        transform: translateY(-50px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
+    from { transform: translateY(-50px); opacity: 0; }
+    to   { transform: translateY(0);     opacity: 1; }
 }
 
 .modal-header {
@@ -453,3 +421,130 @@ progress::-moz-progress-bar {
     right: 20px;
     z-index: 10;
 }
+
+/* Pair label used in CAT-A connection rows */
+.pair-label {
+    font-weight: 600;
+    min-width: 110px;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   CAT-F  additions
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Step title */
+.catf-step-title {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 16px;
+    color: #0a5ed7;
+    border-bottom: 2px solid #e0eaff;
+    padding-bottom: 8px;
+}
+
+/* Two-column form grid */
+.catf-form-grid {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 14px 20px;
+    align-items: center;
+    max-width: 700px;
+}
+
+.catf-form-grid label {
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+}
+
+.catf-form-grid input,
+.catf-form-grid select {
+    padding: 7px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.catf-form-grid input:focus,
+.catf-form-grid select:focus {
+    outline: none;
+    border-color: #0078d4;
+    box-shadow: 0 0 0 2px rgba(0,120,212,0.15);
+}
+
+/* Section separator row inside the form grid */
+.catf-section-label {
+    grid-column: 1 / -1;
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #0078d4;
+    background: #e8f4fd;
+    border-left: 4px solid #0078d4;
+    padding: 5px 10px;
+    border-radius: 0 4px 4px 0;
+}
+
+/* Country search + select row */
+.catf-country-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.catf-country-row input  { width: 150px; }
+.catf-country-row select { width: 200px; }
+
+/* Required / optional labels */
+.req      { color: #e74c3c; font-size: 13px; }
+.optional { font-weight: 400; font-size: 12px; color: #888; }
+
+/* Left-panel legend */
+.catf-legend {
+    margin-top: 20px;
+    padding: 12px;
+    background: #f0f4ff;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: #444;
+}
+
+/* Device summary badge strip on step 2 */
+.catf-device-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.catf-badge {
+    background: #e8f4fd;
+    border: 1px solid #b3d7f5;
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 13px;
+    color: #0a5ed7;
+    font-weight: 500;
+}
+
+/* Status badge shown below progress bar */
+.status-badge {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.badge-running { background: #e3f2fd; color: #0d6efd; border: 1px solid #90caf9; }
+.badge-paused  { background: #fff8e1; color: #f57c00; border: 1px solid #ffcc02; }
+.badge-done    { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+.badge-stopped { background: #f5f5f5; color: #555;    border: 1px solid #ccc;    }
+.badge-error   { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }

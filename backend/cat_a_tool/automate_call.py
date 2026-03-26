@@ -12,7 +12,6 @@ import pandas as pd
 from backend.cat_a_tool.logger import CustomLogger
 from backend.cat_a_tool.utils import *
 from backend.cat_a_tool.data.constants import *
-from frontend.connection_break import reconnect
 
 
 class CallTester:

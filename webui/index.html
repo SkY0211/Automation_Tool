@@ -14,16 +14,18 @@
         Automation Tool – Integration Dashboard
     </div>
 
-    <!-- HOME SCREEN -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- HOME SCREEN                                         -->
+    <!-- ═══════════════════════════════════════════════════ -->
     <div class="content screen" id="home-screen">
         <div class="card active" id="cat-a">
             <h2>CAT-A</h2>
             <p>Call Automation Testing</p>
         </div>
 
-        <div class="card disabled">
+        <div class="card active" id="cat-f">
             <h2>CAT-F</h2>
-            <p>Coming Soon</p>
+            <p>Feature Phone Call Testing</p>
         </div>
 
         <div class="card disabled">
@@ -32,7 +34,9 @@
         </div>
     </div>
 
-    <!-- CAT-A SCREEN -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- CAT-A SCREEN  (unchanged)                           -->
+    <!-- ═══════════════════════════════════════════════════ -->
     <div class="content screen hidden" id="cat-a-screen">
 
         <button id="back-home" class="back-button-top">← Back</button>
@@ -41,13 +45,12 @@
             <h2>CAT-A — Call Automation Testing</h2>
         </div>
 
-        <div class="cat-body cat-layout">
+        <div class="cat-body cat-layout" id="cat-a-layout">
 
             <!-- LEFT PANEL -->
-            <div class="left-panel">
+            <div class="left-panel" id="cat-info-panel">
                 <h2>CAT-A</h2>
                 <p class="subtitle">Call Automation Testing</p>
-
                 <p class="description">
                     CAT-A automates MO–MT call testing by executing
                     configurable call durations, delays, and iterations.
@@ -75,21 +78,13 @@
                     </div>
                 </div>
 
-
-                <!-- SCREEN 2 -->
-            <div class="cat-step hidden" id="cat-step-2">
-
-                <!-- Dynamic MO–MT pairs will be injected here -->
-                   <div id="pair-container"></div>
-
-            </div>
-
-                    </div>
+                <!-- STEP 2 -->
+                <div class="cat-step hidden" id="cat-step-2">
+                    <div id="pair-container"></div>
                 </div>
 
                 <!-- STEP 3 -->
                 <div class="cat-step hidden" id="cat-step-3">
-
                     <div class="execution-layout">
 
                         <!-- EXECUTION PANEL -->
@@ -112,25 +107,22 @@
 
                             <div class="action-row">
                                 <button class="secondary" id="reset-btn">Reset</button>
-                                <button class="info" id="retest-btn">Retest</button>
-                                <button class="success" id="start-btn">Start Test</button>
+                                <button class="info"      id="retest-btn">Retest</button>
+                                <button class="success"   id="start-btn">Start Test</button>
                             </div>
 
-                            <!-- NEW: Pause/Resume/Stop buttons (initially hidden) -->
                             <div class="action-row hidden" id="control-buttons" style="display:none;">
                                 <button class="warning" id="pause-btn">⏸️ Pause</button>
                                 <button class="success" id="resume-btn">▶️ Resume</button>
-                                <button class="danger" id="stop-btn">⏹️ Stop</button>
+                                <button class="danger"  id="stop-btn">⏹️ Stop</button>
                             </div>
                         </div>
 
                         <!-- LOG PANEL -->
                         <div class="execution-right">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <h4>Live Logs</h4>
-                                <button id="open-output-folder" class="folder-icon-btn" title="Click to open output folder">
-                                    📁
-                                </button>
+                                <button id="open-output-folder" class="folder-icon-btn" title="Click to open output folder">📁</button>
                             </div>
                             <pre id="log-box" class="log-box"></pre>
                         </div>
@@ -142,52 +134,219 @@
         </div>
     </div>
 
-</div>
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- CAT-F SCREEN  (new)                                 -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <div class="content screen hidden" id="cat-f-screen">
 
-<!-- Device Connection Popup Modal -->
-<div id="device-connection-modal" class="modal hidden" style="display: none;">
-    <div class="modal-content" style="max-width: 500px;">
+        <button id="back-home-catf" class="back-button-top">← Back</button>
+
+        <div class="cat-header">
+            <h2>CAT-F — Feature Phone Call Testing</h2>
+        </div>
+
+        <div class="cat-body cat-layout" id="cat-f-layout">
+
+            <!-- LEFT PANEL -->
+            <div class="left-panel" id="catf-info-panel">
+                <h2>CAT-F</h2>
+                <p class="subtitle">Feature Phone Call Testing</p>
+                <p class="description">
+                    CAT-F automates voice call testing on feature phones
+                    using AT commands over serial (COM) ports. Configure
+                    MO and MT devices, set test credentials, and start.
+                </p>
+                <div class="catf-legend">
+                    <p><strong>MO</strong> — Mobile Originating (dialler)</p>
+                    <p><strong>MT</strong> — Mobile Terminating (receiver)</p>
+                    <p><strong>COM Port</strong> — e.g. COM11, COM32</p>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL -->
+            <div class="right-panel">
+
+                <!-- ─── STEP 1 : Device & Test Setup ─── -->
+                <div class="cat-step" id="catf-step-1">
+
+                    <h3 class="catf-step-title">Step 1 — Device &amp; Test Configuration</h3>
+
+                    <div class="catf-form-grid">
+
+                        <!-- Country code -->
+                        <label>Country Code:</label>
+                        <div class="catf-country-row">
+                            <input type="text" id="catf-country-search"
+                                   placeholder="Search country…"
+                                   autocomplete="off">
+                            <select id="catf-country-code"></select>
+                        </div>
+
+                        <!-- Test type -->
+                        <label>Test Type:</label>
+                        <select id="catf-test-type">
+                            <option value="MO calls">MO calls</option>
+                            <option value="MT calls">MT calls</option>
+                            <option value="MO-MT calls">MO-MT calls</option>
+                        </select>
+
+                        <!-- Separator -->
+                        <div class="catf-section-label">MO Device</div>
+                        <div></div>
+
+                        <label>MO COM Port <span class="req">*</span></label>
+                        <input type="text" id="catf-mo-port"
+                               placeholder="e.g. COM11" style="width:160px;">
+
+                        <label>MO Phone Number <span class="req">*</span></label>
+                        <input type="text" id="catf-mo-phone"
+                               placeholder="e.g. +919324978500" style="width:210px;">
+
+                        <label>MO SW Version <span class="optional">(optional)</span></label>
+                        <input type="text" id="catf-mo-sw"
+                               placeholder="e.g. 0.2411.11.00" style="width:210px;">
+
+                        <label>MO IMEI <span class="optional">(optional)</span></label>
+                        <input type="text" id="catf-mo-imei"
+                               placeholder="e.g. 354999800003092" style="width:210px;">
+
+                        <!-- Separator -->
+                        <div class="catf-section-label">MT Device</div>
+                        <div></div>
+
+                        <label>MT COM Port <span class="req">*</span></label>
+                        <input type="text" id="catf-mt-port"
+                               placeholder="e.g. COM32" style="width:160px;">
+
+                        <label>MT Phone Number <span class="req">*</span></label>
+                        <input type="text" id="catf-mt-phone"
+                               placeholder="e.g. +918343995388" style="width:210px;">
+
+                        <label>MT SW Version <span class="optional">(optional)</span></label>
+                        <input type="text" id="catf-mt-sw"
+                               placeholder="e.g. 0.2405.11.00" style="width:210px;">
+
+                        <label>MT IMEI <span class="optional">(optional)</span></label>
+                        <input type="text" id="catf-mt-imei"
+                               placeholder="e.g. 355342730000178" style="width:210px;">
+
+                    </div>
+
+                    <div class="action-row" style="justify-content:flex-start; margin-top:24px;">
+                        <button class="primary" id="catf-next-btn">Next →</button>
+                    </div>
+
+                </div>
+
+                <!-- ─── STEP 2 : Test Execution ─── -->
+                <div class="cat-step hidden" id="catf-step-2">
+
+                    <div class="execution-layout">
+
+                        <!-- LEFT: params + progress -->
+                        <div class="execution-container">
+
+                            <h3 class="center-title">Step 2 — Test Execution</h3>
+
+                            <!-- Device summary strip -->
+                            <div class="catf-device-summary" id="catf-device-summary"></div>
+
+                            <div class="execution-grid" style="margin-top:16px;">
+                                <label>No of Iterations:</label>
+                                <input type="number" id="catf-iterations"
+                                       min="1" step="1" value="10">
+
+                                <label>Call Duration (sec):</label>
+                                <input type="number" id="catf-call-duration"
+                                       min="5" step="1" value="30">
+
+                                <label>Call Delay (sec):</label>
+                                <input type="number" id="catf-call-delay"
+                                       min="0" step="1" value="5">
+                            </div>
+
+                            <p id="catf-progress-text">Progress: 0%</p>
+                            <progress id="catf-progress-bar" value="0" max="100"></progress>
+
+                            <!-- Status badge -->
+                            <div id="catf-status-badge" class="status-badge hidden"></div>
+
+                            <!-- Pre-run actions -->
+                            <div class="action-row" id="catf-pre-run-actions">
+                                <button class="secondary" id="catf-back-btn">← Back</button>
+                                <button class="secondary" id="catf-reset-btn">Reset</button>
+                                <button class="success"   id="catf-start-btn">▶ Start Test</button>
+                            </div>
+
+                            <!-- In-run controls (hidden until test starts) -->
+                            <div class="action-row hidden" id="catf-control-buttons" style="display:none;">
+                                <button class="warning" id="catf-pause-btn">⏸️ Pause</button>
+                                <button class="success hidden" id="catf-resume-btn">▶️ Resume</button>
+                                <button class="danger"  id="catf-stop-btn">⏹️ Stop</button>
+                            </div>
+
+                        </div>
+
+                        <!-- RIGHT: live logs -->
+                        <div class="execution-right">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <h4>Live Logs</h4>
+                                <button id="catf-open-folder" class="folder-icon-btn"
+                                        title="Open output folder" style="display:none;">📁</button>
+                            </div>
+                            <pre id="catf-log-box" class="log-box"></pre>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div><!-- /.window -->
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- MODALS                                                   -->
+<!-- ═══════════════════════════════════════════════════════ -->
+
+<!-- CAT-A: Device Connection Modal (unchanged) -->
+<div id="device-connection-modal" class="modal hidden" style="display:none;">
+    <div class="modal-content" style="max-width:500px;">
         <div class="modal-header">
             <h2 id="device-connection-title">Connect Device</h2>
         </div>
         <div class="modal-body">
-            <!-- Step 1: Instruction -->
             <div id="connection-step-1">
-                <p id="device-instruction" style="font-size: 16px; margin-bottom: 20px;"></p>
+                <p id="device-instruction" style="font-size:16px; margin-bottom:20px;"></p>
                 <button class="primary" id="proceed-connection-btn">Proceed</button>
             </div>
-            
-            <!-- Step 2: Device Info -->
             <div id="connection-step-2" class="hidden">
-                <h3 style="margin-bottom: 15px;">Device Info:</h3>
-                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <p style="margin: 8px 0;"><strong>UDID:</strong> <span id="device-udid"></span></p>
-                    <p style="margin: 8px 0;"><strong>Device Name:</strong> <span id="device-name"></span></p>
-                    <p style="margin: 8px 0;"><strong>Android Version:</strong> <span id="device-version"></span></p>
+                <h3 style="margin-bottom:15px;">Device Info:</h3>
+                <div style="background:#f5f5f5; padding:15px; border-radius:8px; margin-bottom:15px;">
+                    <p style="margin:8px 0;"><strong>UDID:</strong> <span id="device-udid"></span></p>
+                    <p style="margin:8px 0;"><strong>Device Name:</strong> <span id="device-name"></span></p>
+                    <p style="margin:8px 0;"><strong>Android Version:</strong> <span id="device-version"></span></p>
                 </div>
-                
-                <h3 style="margin-bottom: 10px;">SIM Preference:</h3>
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin: 10px 0;">
+                <h3 style="margin-bottom:10px;">SIM Preference:</h3>
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; margin:10px 0;">
                         <input type="radio" name="sim-pref" value="0"> SIM1
                     </label>
-                    <label style="display: block; margin: 10px 0;">
+                    <label style="display:block; margin:10px 0;">
                         <input type="radio" name="sim-pref" value="1"> SIM2
                     </label>
                 </div>
-                
                 <button class="primary" id="confirm-device-btn">Confirm</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Device Disconnection Popup Modal -->
+<!-- CAT-A: Device Disconnection Modal (unchanged) -->
 <div id="disconnect-modal" class="modal hidden">
     <div class="modal-content">
-        <div class="modal-header">
-            <h2>⚠️ Device Disconnected</h2>
-        </div>
+        <div class="modal-header"><h2>⚠️ Device Disconnected</h2></div>
         <div class="modal-body">
             <p id="disconnect-message">A device has been disconnected during the test.</p>
         </div>
@@ -197,24 +356,40 @@
     </div>
 </div>
 
-<!-- ✅ OOS Modal - Auto-dismisses after 4 seconds -->
+<!-- CAT-A: OOS Modal (unchanged) -->
 <div id="oos-modal" class="modal hidden">
     <div class="modal-content">
-        <div class="modal-header" style="background-color: #fff3e0;">
+        <div class="modal-header" style="background-color:#fff3e0;">
             <h2>📵 Out of Service (OOS) Detected</h2>
         </div>
         <div class="modal-body">
             <p><strong>⚠️ A device has entered an OOS zone!</strong></p>
-            <p id="oos-devices-list" style="color: #ff6b6b; font-weight: 500;"></p>
-            <p style="margin-top: 10px; color: #666; font-size: 14px;">
-                <em>This notification will auto-dismiss in 4 seconds...</em>
+            <p id="oos-devices-list" style="color:#ff6b6b; font-weight:500;"></p>
+            <p style="margin-top:10px; color:#666; font-size:14px;">
+                <em>This notification will auto-dismiss in 4 seconds…</em>
             </p>
-            <p style="margin-top: 10px; font-size: 13px;">
+            <p style="margin-top:10px; font-size:13px;">
                 The test will automatically wait for the device to return to service and then continue.
             </p>
         </div>
         <div class="modal-footer">
             <button class="primary" id="close-oos-modal">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- CAT-F: Device Disconnection Modal -->
+<div id="catf-disconnect-modal" class="modal hidden" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header"><h2>⚠️ Device Disconnected</h2></div>
+        <div class="modal-body">
+            <p id="catf-disconnect-message">
+                A device disconnected during the test. The test is paused.
+                Reconnect the device then click Resume.
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button class="primary" id="catf-close-disconnect-modal">OK</button>
         </div>
     </div>
 </div>
