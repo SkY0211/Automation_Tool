@@ -27,11 +27,11 @@ def create_folders():
     Returns: log_path, reports_path, user_info_path
     """
     try:
-        name            = f"{datetime.now().strftime('%m%d%Y__%H%M%S')}"
-        base_dir        = os.path.join(get_parent_dir(), 'artifacts')
-        log_path        = os.path.join(base_dir, 'logs',      name)
-        reports_path    = os.path.join(base_dir, 'reports',   name)
-        user_info_path  = os.path.join(base_dir, 'user_info', name)
+        name           = f"{datetime.now().strftime('%m%d%Y__%H%M%S')}"
+        base_dir       = os.path.join(get_parent_dir(), 'artifacts')
+        log_path       = os.path.join(base_dir, 'logs',      name)
+        reports_path   = os.path.join(base_dir, 'reports',   name)
+        user_info_path = os.path.join(base_dir, 'user_info', name)
 
         os.makedirs(log_path,       exist_ok=True)
         os.makedirs(reports_path,   exist_ok=True)
@@ -50,7 +50,7 @@ def create_folders():
 def send_at_command(serial_port, command, logger: CustomLogger):
     """Send an AT command and return the response."""
     try:
-        ser      = serial.Serial(serial_port, baudrate=115200, timeout=1)
+        ser      = serial.Serial(serial_port, baudrate=115200, timeout=2)
         ser.write(command.encode('utf-8') + b'\r\n')
         response = ser.read_until(b'OK').decode('utf-8').strip()
         ser.close()
@@ -61,48 +61,53 @@ def send_at_command(serial_port, command, logger: CustomLogger):
 
 
 def list_serial_ports(logger: CustomLogger):
-    """List available serial ports. Returns list or None."""
-    com_ports = []
-    ports     = []
-    attempts  = 0
-
-    while len(ports) <= 1:
-        time.sleep(3)
-        logger.log(f"Attempt -> {attempts + 1}: searching for Serial Ports...")
+    """
+    List available serial ports.
+    Fast, non-blocking — returns immediately with whatever ports are present.
+    Used only for find_at_port during device configuration setup.
+    """
+    try:
         ports     = list_ports.comports()
         com_ports = [port.device for port in ports]
         logger.log(f"COM ports found -> {com_ports}")
-        attempts += 1
-
-        if attempts >= 2:
-            return None
-    return com_ports
+        return com_ports if com_ports else None
+    except Exception as e:
+        logger.log(f"Failed to list serial ports: {e}", level=logging.ERROR)
+        return None
 
 
 def find_at_port(checked_ports, logger: CustomLogger):
-    """Find the corresponding AT port for a connected device."""
+    """
+    Find an AT-responsive COM port that hasn't been checked yet.
+    Used during device configuration — retries up to 3 times with a short delay.
+    """
     logger.log("Searching for AT port", level=logging.INFO)
-    ports = list_serial_ports(logger)
-    if not ports:
-        logger.log("No Ports found.", level=logging.INFO)
-        return None
-    for port in ports:
-        logger.log(f"Checked ports -> {checked_ports}", level=logging.INFO)
-        if port in checked_ports:
-            continue
-        try:
-            checked_ports.append(port)
-            ser      = serial.Serial(port, baudrate=115200, timeout=1)
-            ser.write(b'AT\r\n')
-            response = ser.read_until(b'OK')
-            ser.close()
-            if b'OK' in response:
-                logger.log(f"AT port found: {port}", level=logging.INFO)
-                return port
-        except serial.SerialException as e:
-            logger.log(f"Failed to open serial port {port}", e, logging.ERROR)
 
-    logger.log("No AT port found", level=logging.INFO)
+    for attempt in range(3):
+        ports = list_ports.comports()
+        com_ports = [p.device for p in ports]
+        logger.log(f"Attempt {attempt+1}: ports found -> {com_ports}")
+
+        for port in com_ports:
+            if port in checked_ports:
+                continue
+            try:
+                checked_ports.append(port)
+                ser = serial.Serial(port, baudrate=115200, timeout=1)
+                ser.write(b'AT\r\n')
+                response = ser.read_until(b'OK')
+                ser.close()
+                if b'OK' in response:
+                    logger.log(f"AT port found: {port}", level=logging.INFO)
+                    return port
+            except serial.SerialException as e:
+                logger.log(f"Failed to open serial port {port}", e, logging.ERROR)
+
+        if attempt < 2:
+            logger.log("No AT port found yet, waiting 2s before retry...")
+            time.sleep(2)
+
+    logger.log("No AT port found after 3 attempts", level=logging.INFO)
     return None
 
 
@@ -126,11 +131,11 @@ def extract_device_info(serial_port, logger: CustomLogger) -> dict:
 
     try:
         if cgmr_response and 'Software Version:' in cgmr_response:
-            software_version            = cgmr_response.split('Software Version: ')[1].split('\r')[0].strip()
+            software_version = cgmr_response.split('Software Version: ')[1].split('\r')[0].strip()
             device_info["Software Version"] = software_version
 
         if cgsn_response and '\n' in cgsn_response:
-            imei                = cgsn_response.split('\n')[0].strip()
+            imei = cgsn_response.split('\n')[0].strip()
             device_info["IMEI"] = imei
 
         if cnum_response and ',' in cnum_response:

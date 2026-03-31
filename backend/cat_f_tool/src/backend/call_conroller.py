@@ -16,7 +16,8 @@ from backend.cat_f_tool.src.data.constants         import VERSION, COLUMN_NAMES
 
 from backend.cat_f_tool.src.backend.helper import (
     dial_number, receive_call, end_call, get_call_state,
-    check_network_registration_status, check_device_disconnection
+    check_network_registration_status, check_device_disconnection,
+    wait_for_ring_on_mt, check_mo_dialing, answer_call_on_mt
 )
 from backend.cat_f_tool.src.frontend.connection_break import reconnect
 from backend.cat_f_tool.src.frontend.progress_check   import TestProgress
@@ -30,20 +31,19 @@ class CallTester:
                  resume_event: threading.Event,
                  pause_event: threading.Event,
                  end_test_event: threading.Event):
-        # Variable initiation
-        self.resume_event  = resume_event
-        self.pause_event   = pause_event
-        self.end_event     = end_test_event
-        self.call_duration = None
-        self.comment       = None
-        self.result        = None
-        self.home          = home
+        self.resume_event   = resume_event
+        self.pause_event    = pause_event
+        self.end_event      = end_test_event
+        self.call_duration  = None
+        self.comment        = None
+        self.result         = None
+        self.home           = home
         self.progress_frame = progress_frame
-        # Create logs file to save the frontend related logs.
+
         self.logger = CustomLogger("backend", Paths.latest_log_dir_path)
         self.logger.log("Backend code initiated to Start the Call Testing.")
-        # Collect required information for Calling
-        self.test_type = TestCred.test_type
+
+        self.test_type  = TestCred.test_type
         self.iterations = TestCred.iterations
         self.duration   = TestCred.call_duration
         self.delay      = TestCred.call_delay
@@ -68,7 +68,7 @@ class CallTester:
             self.mt_port = DeviceInfo.dev1["AT Port"]
             self.mt_no   = DeviceInfo.dev1["Phone Number"]
 
-        # Report workbook initiation
+        # Report workbook
         self.bold_font = Font(bold=True)
         self.report_file_path = os.path.join(
             Paths.latest_report_dir_path,
@@ -82,11 +82,6 @@ class CallTester:
         self._write_report_columns_names(self.current_sheet, COLUMN_NAMES, 8)
 
     def _check_pause(self):
-        """
-        If the pause event is set True by pressing Pause button on the UI,
-        this function will pause the automation and resume the next iteration only
-        if the resume event is set True.
-        """
         if self.pause_event.isSet():
             self.pause_event.clear()
             self.logger.log(message="Automation Paused.", level=logging.INFO)
@@ -133,9 +128,9 @@ class CallTester:
     def _write_report_columns_names(self, worksheet, columns: List[str], row: int):
         bg_color = PatternFill(start_color="B0E0E6", end_color="B0E0E6", fill_type="solid")
         for col_idx, column_name in enumerate(columns, 1):
-            cell       = worksheet.cell(row=row, column=col_idx, value=column_name)
-            cell.font  = self.bold_font
-            cell.fill  = bg_color
+            cell      = worksheet.cell(row=row, column=col_idx, value=column_name)
+            cell.font = self.bold_font
+            cell.fill = bg_color
         self._save_workbook()
 
     def _new_sheet_for_mt_calls(self):
@@ -155,97 +150,128 @@ class CallTester:
         self._save_workbook()
 
     def _make_devices_idle(self):
-        self.logger.log("Put the devices into IDLE state if not already.")
-        mo_state = get_call_state(self.mo_port, self.logger)
-        if 'idle' not in mo_state['state'].lower() or 'active' in mo_state['state'].lower():
-            end_call(self.mo_port, self.logger)
-        mt_state = get_call_state(self.mt_port, self.logger)
-        if 'idle' not in mt_state['state'].lower() or 'active' in mt_state['state'].lower():
-            end_call(self.mt_port, self.logger)
+        """Send ATH to both ports to ensure they are in IDLE state."""
+        self.logger.log("Putting devices into IDLE state...")
+        end_call(self.mo_port, self.logger)
+        end_call(self.mt_port, self.logger)
+        time.sleep(1)
 
     def perform_call(self, current_itr):
         """
-        Performs one iteration of MO-MT call testing.
-        Includes fallback for unsupported AT+CLCC using RING detection on MT side.
-        """
-        from backend.cat_f_tool.src.utility.utils import send_at_command
+        Performs one iteration of MO→MT call testing.
 
+        Designed to work correctly with both:
+          - Feature phones that support AT+CLCC (standard)
+          - 2G/Unisoc feature phones that only emit RING URCs (no AT+CLCC)
+
+        Flow:
+          1. Check both ports are connected
+          2. Put devices into IDLE
+          3. Dial from MO port
+          4. Give MO 2s to start the call setup
+          5. Check MO is dialing (AT+CLCC if supported; else trust ATD result)
+          6. Listen on MT port directly for RING/+CSYS URC (up to 30s)
+          7. Answer the call on MT with ATA
+          8. Hold call for configured duration
+          9. End call on both sides
+         10. Write report row
+        """
         date       = datetime.now().strftime("%d/%m/%Y")
         start_time = datetime.now().strftime("%H:%M:%S")
         end_time   = "00:00:00"
         self.call_duration = "00"
-        self.logger.log(f"Iteration -> {current_itr}")
 
-        # Step 1: Disconnection check
+        self.logger.log(f"{'='*50}")
+        self.logger.log(f"Iteration {current_itr} START")
+        self.logger.log(f"  MO port: {self.mo_port}  |  MT port: {self.mt_port}")
+        self.logger.log(f"  Dialing: {self.mt_no}  |  Duration: {self.duration}s")
+
+        # ── Step 1: Disconnection check ───────────────────────────────────────
         status, _ = check_device_disconnection(self.mo_port, self.mt_port, self.logger)
         if not status:
             raise Exception("Device disconnected!")
 
+        # ── Step 2: Put both devices into IDLE ────────────────────────────────
         self._make_devices_idle()
 
-        # Step 2: Dial from MO with fallback
+        # ── Step 3: Dial from MO ──────────────────────────────────────────────
+        self.logger.log(f"Dialing {self.mt_no} from MO port {self.mo_port}...")
         dial_success = dial_number(self.mo_port, self.mt_no, self.logger)
 
         if not dial_success:
-            self.logger.log(f"Dial failed for number {self.mt_no} on port {self.mo_port}", level=logging.WARNING)
+            self.logger.log(
+                f"Dial failed for {self.mt_no} on {self.mo_port}", level=logging.WARNING)
             self._update_report(current_itr, date, start_time, "NA", "00", "Fail", "MO dial failed")
             return
 
-        time.sleep(3)  # wait before checking call status
+        # ── Step 4: Brief pause — let the network set up the call ─────────────
+        self.logger.log("Dial command accepted. Waiting 2s for call setup...")
+        time.sleep(2)
 
-        # Step 3: Check MO state
-        mo_state = get_call_state(self.mo_port, self.logger)
-        if mo_state and mo_state['state'].lower() in ['dialing (mo call)', 'alerting (mo call)']:
+        # ── Step 5: Confirm MO is dialing ─────────────────────────────────────
+        # For feature phones without AT+CLCC this returns True if the port is
+        # still alive (meaning ATD was accepted and the call setup is underway).
+        mo_dialing = check_mo_dialing(self.mo_port, self.logger)
+        if not mo_dialing:
+            self.logger.log("MO not in dialing state after ATD — marking as Fail.")
+            end_call(self.mo_port, self.logger)
+            self._update_report(current_itr, date, start_time, "NA", "00",
+                                "Fail", "MO failed to establish call")
+            return
 
-            wait_time      = 15
-            call_connected = False
+        self.logger.log("MO confirmed dialing. Listening for RING on MT...")
 
-            # Step 4: Poll MT for incoming call
-            while wait_time:
-                mt_state = get_call_state(self.mt_port, self.logger)
-                if mt_state and mt_state['state'].lower() == 'ring':
-                    self.logger.log("Incoming call detected on MT side. Sending ATA...")
-                    send_at_command(self.mt_port, "ATA", self.logger)
-                    call_connected = True
-                    break
-                time.sleep(1)
-                wait_time -= 1
+        # ── Step 6: Listen on MT port for incoming RING ───────────────────────
+        # 30 seconds gives plenty of time even on congested networks
+        ring_detected = wait_for_ring_on_mt(self.mt_port, timeout_sec=30, logger=self.logger)
 
-            if call_connected:
-                # Step 5: Hold call for specified duration
-                hold_time = int(self.duration)
-                time.sleep(hold_time)
-                send_at_command(self.mo_port, "ATH", self.logger)
-                end_time           = datetime.now().strftime("%H:%M:%S")
-                self.call_duration = self.duration
-                self.comment       = ""
-                self.result        = "Pass"
-                send_at_command(self.mt_port, "ATH", self.logger)
-                self.logger.log("Call ended successfully.")
-                self._update_report(current_itr, date, start_time, end_time,
-                                    self.call_duration, self.result, self.comment)
-            else:
-                self.logger.log("MT did not answer or detect incoming call.")
-                end_time           = "NA"
-                self.call_duration = "00"
-                self.comment       = "MT did not answer"
-                self.result        = "Fail"
-                self._update_report(current_itr, date, start_time, end_time,
-                                    self.call_duration, self.result, self.comment)
+        if not ring_detected:
+            self.logger.log("MT did not receive incoming call within 30s.")
+            end_call(self.mo_port, self.logger)
+            end_call(self.mt_port, self.logger)
+            self._update_report(current_itr, date, start_time, "NA", "00",
+                                "Fail", "MT did not ring")
+            return
 
-        else:
-            self.logger.log("MO device did not establish call state correctly.")
-            end_time           = "NA"
-            self.call_duration = "00"
-            self.comment       = "MO not in dialing/alerting state"
-            self.result        = "Fail"
-            self._update_report(current_itr, date, start_time, end_time,
-                                self.call_duration, self.result, self.comment)
+        # ── Step 7: Answer the call on MT ─────────────────────────────────────
+        self.logger.log("RING detected on MT. Answering call...")
+        answered = answer_call_on_mt(self.mt_port, self.logger)
+
+        if not answered:
+            self.logger.log("MT failed to answer the call.")
+            end_call(self.mo_port, self.logger)
+            end_call(self.mt_port, self.logger)
+            self._update_report(current_itr, date, start_time, "NA", "00",
+                                "Fail", "MT failed to answer")
+            return
+
+        # ── Step 8: Record call start, hold for configured duration ───────────
+        call_start = datetime.now()
+        start_time = call_start.strftime("%H:%M:%S")
+        hold_secs  = int(self.duration)
+        self.logger.log(f"Call connected. Holding for {hold_secs}s...")
+        time.sleep(hold_secs)
+
+        # ── Step 9: End call on both sides ────────────────────────────────────
+        end_call(self.mo_port, self.logger)
+        time.sleep(0.5)
+        end_call(self.mt_port, self.logger)
+
+        end_time           = datetime.now().strftime("%H:%M:%S")
+        self.call_duration = self.duration
+        self.result        = "Pass"
+        self.comment       = ""
+        self.logger.log(f"Iteration {current_itr} PASS — call held for {hold_secs}s")
+
+        # ── Step 10: Write report ─────────────────────────────────────────────
+        self._update_report(current_itr, date, start_time, end_time,
+                            self.call_duration, self.result, self.comment)
 
     def run_test(self, queue: Queue):
-        self.logger.log("Create Progress bar")
+        self.logger.log("run_test started")
         progress    = TestProgress(self.progress_frame, self.iterations)
         current_itr = 1
+
         while current_itr <= self.iterations:
             try:
                 self._check_pause()
@@ -276,11 +302,20 @@ class CallTester:
                             break
                     self._make_devices_idle()
                 else:
-                    self.logger.log("Failed to execute. System Error", e, logging.ERROR)
+                    self.logger.log(f"System error in iteration {current_itr}: {e}", level=logging.ERROR)
+                    # Continue to next iteration on non-disconnect errors
+                    self._update_report(
+                        current_itr,
+                        datetime.now().strftime("%d/%m/%Y"),
+                        datetime.now().strftime("%H:%M:%S"),
+                        "NA", "00", "Fail", f"System error: {str(e)[:80]}"
+                    )
+                    current_itr += 1
 
+        # ── MO-MT calls: second pass with roles swapped ────────────────────
         if self.test_type == "MO-MT calls":
             self._new_sheet_for_mt_calls()
-            self.logger.log("Create Progress bar")
+            self.logger.log("Starting MT phase of MO-MT calls test")
             progress    = TestProgress(self.progress_frame, self.iterations)
             current_itr = 1
             while current_itr <= self.iterations:
@@ -313,7 +348,14 @@ class CallTester:
                                 break
                         self._make_devices_idle()
                     else:
-                        self.logger.log("Failed to execute. System Error", e, logging.ERROR)
+                        self.logger.log(f"System error in MT iteration {current_itr}: {e}", level=logging.ERROR)
+                        self._update_report(
+                            current_itr,
+                            datetime.now().strftime("%d/%m/%Y"),
+                            datetime.now().strftime("%H:%M:%S"),
+                            "NA", "00", "Fail", f"System error: {str(e)[:80]}"
+                        )
+                        current_itr += 1
 
 
 def run_call_testing(test: CallTester, queue):
