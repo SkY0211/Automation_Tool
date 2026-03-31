@@ -242,13 +242,8 @@ html, body {
     position: relative;
 }
 
-.folder-icon-btn:hover {
-    transform: scale(1.15);
-}
-
-.folder-icon-btn:active {
-    transform: scale(1.0);
-}
+.folder-icon-btn:hover  { transform: scale(1.15); }
+.folder-icon-btn:active { transform: scale(1.0);  }
 
 .folder-icon-btn:hover::after {
     content: attr(title);
@@ -276,24 +271,11 @@ button {
     transition: all 0.2s;
 }
 
-button:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
-}
+button:hover    { opacity: 0.9; transform: translateY(-1px); }
+button:active   { transform: translateY(0); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-button:active {
-    transform: translateY(0);
-}
-
-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.small-btn {
-    padding: 5px 12px;
-    font-size: 12px;
-}
+.small-btn { padding: 5px 12px; font-size: 12px; }
 
 .primary   { background: #0078d4; color: white; }
 .secondary { background: #e0e0e0; color: #333; }
@@ -318,23 +300,16 @@ button:disabled {
     flex-wrap: wrap;
 }
 
-.device-pair label {
-    font-weight: bold;
-}
+.device-pair label { font-weight: bold; }
 
-.mt-input {
-    padding: 6px 10px;
-    width: 220px;
-}
+.mt-input { padding: 6px 10px; width: 220px; }
 
 /* MODAL STYLES */
 .modal {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.6);
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -344,7 +319,7 @@ button:disabled {
 .modal-content {
     background: white;
     border-radius: 8px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
     width: 90%;
     max-width: 500px;
     animation: modalSlideIn 0.3s ease-out;
@@ -362,21 +337,10 @@ button:disabled {
     border-radius: 8px 8px 0 0;
 }
 
-.modal-header h2 {
-    margin: 0;
-    font-size: 20px;
-    color: #856404;
-}
+.modal-header h2 { margin: 0; font-size: 20px; color: #856404; }
 
-.modal-body {
-    padding: 24px;
-    font-size: 15px;
-    line-height: 1.6;
-}
-
-.modal-body p {
-    margin: 12px 0;
-}
+.modal-body { padding: 24px; font-size: 15px; line-height: 1.6; }
+.modal-body p { margin: 12px 0; }
 
 .modal-footer {
     padding: 16px 24px;
@@ -386,9 +350,7 @@ button:disabled {
     gap: 12px;
 }
 
-.modal-footer button {
-    min-width: 80px;
-}
+.modal-footer button { min-width: 80px; }
 
 /* PROGRESS BAR */
 progress {
@@ -398,132 +360,263 @@ progress {
     overflow: hidden;
 }
 
-progress::-webkit-progress-bar {
-    background-color: #e0e0e0;
-    border-radius: 4px;
-}
-
-progress::-webkit-progress-value {
-    background: linear-gradient(to right, #0078d4, #00b050);
-    border-radius: 4px;
-    transition: width 0.3s ease;
-}
-
-progress::-moz-progress-bar {
-    background: linear-gradient(to right, #0078d4, #00b050);
-    border-radius: 4px;
-}
+progress::-webkit-progress-bar    { background-color: #e0e0e0; border-radius: 4px; }
+progress::-webkit-progress-value  { background: linear-gradient(to right, #0078d4, #00b050); border-radius: 4px; transition: width 0.3s ease; }
+progress::-moz-progress-bar       { background: linear-gradient(to right, #0078d4, #00b050); border-radius: 4px; }
 
 #pair-container {
     position: absolute;
-    top: 120px;
-    left: 20px;
-    right: 20px;
+    top: 120px; left: 20px; right: 20px;
     z-index: 10;
 }
 
-/* Pair label used in CAT-A connection rows */
-.pair-label {
-    font-weight: 600;
-    min-width: 110px;
-}
+.pair-label { font-weight: 600; min-width: 110px; }
 
 
-/* ═══════════════════════════════════════════════════════════════
-   CAT-F  additions
-   ═══════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════
+   CAT-F  — 3-page layout styles
+   ═══════════════════════════════════════════════════════════════════════ */
 
-/* Step title */
-.catf-step-title {
-    margin-top: 0;
-    margin-bottom: 20px;
-    font-size: 16px;
-    color: #0a5ed7;
-    border-bottom: 2px solid #e0eaff;
-    padding-bottom: 8px;
-}
-
-/* Two-column form grid */
-.catf-form-grid {
-    display: grid;
-    grid-template-columns: 220px 1fr;
-    gap: 14px 20px;
+/* Wrapper fills the screen (minus title bar) */
+.catf-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    max-width: 700px;
+    justify-content: flex-start;
+    padding: 40px 60px 40px 80px; /* left indent clears Back button */
+    overflow-y: auto;
 }
 
-.catf-form-grid label {
+/* Each page is a centred card */
+.catf-page {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+/* Override: hidden pages must not show even though .catf-page sets display:flex */
+.catf-page.hidden {
+    display: none !important;
+}
+
+.catf-page-card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    padding: 32px 36px;
+    width: 100%;
+    max-width: 560px;
+}
+
+.catf-wide { max-width: 900px; }
+
+/* Page header */
+.catf-page-header { margin-bottom: 24px; }
+
+.catf-page-header h2 {
+    margin: 0 0 8px;
+    font-size: 22px;
+    color: #0a5ed7;
+}
+
+.catf-header-sub {
+    font-size: 16px;
+    font-weight: 400;
+    color: #555;
+}
+
+.catf-instructions {
+    margin: 0;
+    font-size: 14px;
+    color: #555;
+    line-height: 1.5;
+}
+
+/* Field group (label + input stacked) */
+.catf-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+/* Shared input / select */
+.catf-label {
     font-weight: 600;
     font-size: 14px;
     color: #333;
 }
 
-.catf-form-grid input,
-.catf-form-grid select {
-    padding: 7px 10px;
+.catf-input,
+.catf-select {
+    padding: 9px 12px;
     border: 1px solid #ccc;
-    border-radius: 4px;
+    border-radius: 5px;
     font-size: 14px;
     transition: border-color 0.2s;
+    font-family: inherit;
 }
 
-.catf-form-grid input:focus,
-.catf-form-grid select:focus {
+.catf-input:focus,
+.catf-select:focus {
     outline: none;
     border-color: #0078d4;
-    box-shadow: 0 0 0 2px rgba(0,120,212,0.15);
+    box-shadow: 0 0 0 2px rgba(0,120,212,0.18);
 }
 
-/* Section separator row inside the form grid */
-.catf-section-label {
-    grid-column: 1 / -1;
-    margin-top: 10px;
-    font-size: 13px;
+/* Page action row */
+.catf-page-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 24px;
+}
+
+/* ── Buttons ── */
+.catf-btn-primary {
+    background: #0078d4;
+    color: white;
+    border: none;
+    padding: 9px 22px;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.catf-btn-primary:hover    { background: #005ea2; transform: translateY(-1px); }
+.catf-btn-primary:active   { transform: translateY(0); }
+.catf-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.catf-btn-secondary {
+    background: #e0e0e0;
+    color: #333;
+    border: none;
+    padding: 9px 22px;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.catf-btn-secondary:hover  { background: #cacaca; }
+.catf-btn-secondary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.catf-btn-success {
+    background: #00b050;
+    color: white;
+    border: none;
+    padding: 9px 22px;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.catf-btn-success:hover  { background: #008c3e; transform: translateY(-1px); }
+.catf-btn-success:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.catf-btn-warning {
+    background: #ff9800;
+    color: white;
+    border: none;
+    padding: 9px 22px;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.catf-btn-warning:hover { background: #e08600; }
+
+.catf-btn-danger {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 9px 22px;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.catf-btn-danger:hover { background: #c0392b; }
+
+.catf-btn-done {
+    background: #00b050 !important;
+    color: white !important;
+}
+
+/* ── Page 2: Device cards ── */
+.catf-devices-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.catf-device-card {
+    border: 2px solid #0078d4;
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: #f8fbff;
+}
+
+.catf-device-disabled {
+    border-color: #ccc;
+    background: #f9f9f9;
+    opacity: 0.6;
+}
+
+.catf-device-title {
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #0078d4;
-    background: #e8f4fd;
-    border-left: 4px solid #0078d4;
-    padding: 5px 10px;
-    border-radius: 0 4px 4px 0;
+    font-size: 15px;
+    color: #0a5ed7;
 }
 
-/* Country search + select row */
-.catf-country-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.catf-country-row input  { width: 150px; }
-.catf-country-row select { width: 200px; }
-
-/* Required / optional labels */
-.req      { color: #e74c3c; font-size: 13px; }
-.optional { font-weight: 400; font-size: 12px; color: #888; }
-
-/* Left-panel legend */
-.catf-legend {
-    margin-top: 20px;
-    padding: 12px;
-    background: #f0f4ff;
-    border-radius: 6px;
+.catf-device-info {
+    flex: 1;
     font-size: 13px;
-    line-height: 1.8;
     color: #444;
+    min-height: 80px;
 }
 
-/* Device summary badge strip on step 2 */
-.catf-device-summary {
+.catf-info-placeholder {
+    color: #aaa;
+    font-style: italic;
+}
+
+.catf-info-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.catf-info-table td {
+    padding: 3px 6px;
+    vertical-align: top;
+}
+
+.catf-info-table td:first-child {
+    color: #777;
+    width: 90px;
+    white-space: nowrap;
+}
+
+/* ── Page 3: Layout ── */
+.catf-summary-strip {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 4px;
+    margin-bottom: 16px;
 }
 
-.catf-badge {
+.catf-sum-badge {
     background: #e8f4fd;
     border: 1px solid #b3d7f5;
     border-radius: 20px;
@@ -533,8 +626,63 @@ progress::-moz-progress-bar {
     font-weight: 500;
 }
 
-/* Status badge shown below progress bar */
-.status-badge {
+.catf-exec-layout {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    gap: 24px;
+    align-items: start;
+}
+
+.catf-exec-right {
+    border-left: 1px solid #ddd;
+    padding-left: 20px;
+}
+
+.catf-section-heading {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0a5ed7;
+    margin: 0 0 16px;
+}
+
+.catf-cred-row {
+    display: grid;
+    grid-template-columns: 170px 1fr;
+    gap: 10px 16px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.catf-cred-label {
+    font-weight: 600;
+    font-size: 13px;
+    color: #333;
+}
+
+.catf-input-sm {
+    padding: 7px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+    width: 100%;
+    font-family: inherit;
+}
+
+.catf-input-sm:focus {
+    outline: none;
+    border-color: #0078d4;
+    box-shadow: 0 0 0 2px rgba(0,120,212,0.15);
+}
+
+.catf-action-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+}
+
+/* ── Status badge ── */
+.catf-status-badge {
     display: inline-block;
     margin-top: 10px;
     padding: 6px 16px;
@@ -543,8 +691,58 @@ progress::-moz-progress-bar {
     font-weight: 600;
 }
 
-.badge-running { background: #e3f2fd; color: #0d6efd; border: 1px solid #90caf9; }
-.badge-paused  { background: #fff8e1; color: #f57c00; border: 1px solid #ffcc02; }
-.badge-done    { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
-.badge-stopped { background: #f5f5f5; color: #555;    border: 1px solid #ccc;    }
-.badge-error   { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+.catf-badge-running { background: #e3f2fd; color: #0d6efd; border: 1px solid #90caf9; }
+.catf-badge-paused  { background: #fff8e1; color: #f57c00; border: 1px solid #ffcc02; }
+.catf-badge-done    { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+.catf-badge-stopped { background: #f5f5f5; color: #555;    border: 1px solid #ccc;    }
+.catf-badge-error   { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+
+/* ── Configure modal specifics ── */
+#catf-config-modal .modal-header {
+    background: #e8f4fd;
+}
+
+#catf-config-modal .modal-header h2 {
+    color: #0a5ed7;
+    font-size: 18px;
+}
+
+.catf-detecting-msg {
+    font-size: 14px;
+    color: #0078d4;
+    font-style: italic;
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+}
+
+.catf-modal-info-table {
+    background: #f5f8ff;
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-size: 14px;
+}
+
+.catf-modal-info-row {
+    display: flex;
+    gap: 12px;
+    padding: 5px 0;
+    border-bottom: 1px solid #e0e8ff;
+}
+
+.catf-modal-info-row:last-child { border-bottom: none; }
+
+.catf-modal-info-key {
+    color: #666;
+    min-width: 90px;
+    font-weight: 500;
+}
+
+.catf-modal-info-val {
+    color: #111;
+    font-weight: 600;
+    word-break: break-all;
+}

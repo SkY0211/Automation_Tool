@@ -11,22 +11,22 @@ document.addEventListener("DOMContentLoaded", () => {
   let testPaused = false;
   let previousOosState = false;
 
-  const disconnectModal     = document.getElementById("disconnect-modal");
+  const disconnectModal      = document.getElementById("disconnect-modal");
   const closeDisconnectModal = document.getElementById("close-disconnect-modal");
-  const disconnectMessage   = document.getElementById("disconnect-message");
+  const disconnectMessage    = document.getElementById("disconnect-message");
 
-  const oosModal      = document.getElementById("oos-modal");
-  const closeOosModal = document.getElementById("close-oos-modal");
-  const oosMessage    = document.getElementById("oos-message");
+  const oosModal       = document.getElementById("oos-modal");
+  const closeOosModal  = document.getElementById("close-oos-modal");
+  const oosMessage     = document.getElementById("oos-message");
   const oosDevicesList = document.getElementById("oos-devices-list");
 
-  const deviceConnectionModal  = document.getElementById("device-connection-modal");
-  const deviceConnectionTitle  = document.getElementById("device-connection-title");
-  const deviceInstruction      = document.getElementById("device-instruction");
-  const connectionStep1        = document.getElementById("connection-step-1");
-  const connectionStep2        = document.getElementById("connection-step-2");
-  const proceedBtn             = document.getElementById("proceed-connection-btn");
-  const confirmDeviceBtn       = document.getElementById("confirm-device-btn");
+  const deviceConnectionModal = document.getElementById("device-connection-modal");
+  const deviceConnectionTitle = document.getElementById("device-connection-title");
+  const deviceInstruction     = document.getElementById("device-instruction");
+  const connectionStep1       = document.getElementById("connection-step-1");
+  const connectionStep2       = document.getElementById("connection-step-2");
+  const proceedBtn            = document.getElementById("proceed-connection-btn");
+  const confirmDeviceBtn      = document.getElementById("confirm-device-btn");
 
   if (disconnectModal) {
     disconnectModal.classList.add("hidden");
@@ -80,12 +80,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const step2 = document.getElementById("cat-step-2");
   const step3 = document.getElementById("cat-step-3");
 
-  const testType   = document.getElementById("test-type");
+  const testType    = document.getElementById("test-type");
   const deviceCount = document.getElementById("device-count");
 
-  const iterations  = document.getElementById("iterations");
+  const iterations   = document.getElementById("iterations");
   const callDuration = document.getElementById("call-duration");
-  const callDelay   = document.getElementById("call-delay");
+  const callDelay    = document.getElementById("call-delay");
 
   const nextBtn   = document.getElementById("next-to-step-2");
   const startBtn  = document.getElementById("start-btn");
@@ -171,8 +171,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const pairId = Number(e.target.dataset.pair);
       currentConnectingPair = pairId;
       currentConnectingType = "mo";
-      deviceConnectionTitle.textContent  = `Connect MO${pairId}`;
-      deviceInstruction.textContent      = `Connect the MO${pairId} device and click 'Proceed' button`;
+      deviceConnectionTitle.textContent = `Connect MO${pairId}`;
+      deviceInstruction.textContent     = `Connect the MO${pairId} device and click 'Proceed' button`;
       connectionStep1.classList.remove("hidden");
       connectionStep2.classList.add("hidden");
       deviceConnectionModal.classList.remove("hidden");
@@ -183,8 +183,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const pairId = Number(e.target.dataset.pair);
       currentConnectingPair = pairId;
       currentConnectingType = "mt";
-      deviceConnectionTitle.textContent  = `Connect MT${pairId}`;
-      deviceInstruction.textContent      = `Connect the MT${pairId} device and click 'Proceed' button`;
+      deviceConnectionTitle.textContent = `Connect MT${pairId}`;
+      deviceInstruction.textContent     = `Connect the MT${pairId} device and click 'Proceed' button`;
       connectionStep1.classList.remove("hidden");
       connectionStep2.classList.add("hidden");
       deviceConnectionModal.classList.remove("hidden");
@@ -195,10 +195,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const pairId = Number(e.target.dataset.pair);
       const input  = document.querySelector(`input[data-pair="${pairId}"]`);
       if (!input.value.match(/^[0-9]{8,15}$/)) { alert(`Enter valid MT number for Pair ${pairId}`); return; }
-      mtNumbers[pairId]          = input.value;
-      pairs[pairId - 1].saved    = true;
-      e.target.disabled          = true;
-      input.disabled             = true;
+      mtNumbers[pairId]       = input.value;
+      pairs[pairId - 1].saved = true;
+      e.target.disabled       = true;
+      input.disabled          = true;
       alert(`MT number saved for Pair ${pairId}`);
       if (pairs.every(p => p.saved)) { showStep(3); }
     }
@@ -246,20 +246,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (currentConnectingType === "mo") {
       pair.moSerial = serial; pair.mo = name; pair.moSimPref = simPref; pair.moConnected = true;
-      const moStatus        = document.getElementById(`mo-status-${currentConnectingPair}`);
-      moStatus.textContent  = `${name} (SIM${simPref + 1})`;
+      const moStatus       = document.getElementById(`mo-status-${currentConnectingPair}`);
+      moStatus.textContent = `${name} (SIM${simPref + 1})`;
       moStatus.classList.add("connected");
-      moStatus.style.color  = "white";
+      moStatus.style.color = "white";
       document.querySelector(`.connect-mt-btn[data-pair="${currentConnectingPair}"]`).disabled = false;
       document.querySelector(`.connect-mo-btn[data-pair="${currentConnectingPair}"]`).disabled = true;
     } else {
       pair.mtSerial = serial; pair.mt = name; pair.mtSimPref = simPref; pair.mtConnected = true;
-      const mtStatus        = document.getElementById(`mt-status-${currentConnectingPair}`);
-      mtStatus.textContent  = `${name} (SIM${simPref + 1})`;
+      const mtStatus       = document.getElementById(`mt-status-${currentConnectingPair}`);
+      mtStatus.textContent = `${name} (SIM${simPref + 1})`;
       mtStatus.classList.add("connected");
-      mtStatus.style.color  = "white";
-      document.querySelector(`input[data-pair="${currentConnectingPair}"]`).disabled  = false;
-      document.querySelector(`.save-btn[data-pair="${currentConnectingPair}"]`).disabled = false;
+      mtStatus.style.color = "white";
+      document.querySelector(`input[data-pair="${currentConnectingPair}"]`).disabled        = false;
+      document.querySelector(`.save-btn[data-pair="${currentConnectingPair}"]`).disabled    = false;
       document.querySelector(`.connect-mt-btn[data-pair="${currentConnectingPair}"]`).disabled = true;
     }
     alreadyConnectedSerials.push(serial);
@@ -342,7 +342,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (list) list.textContent = "A device has entered an Out of Service zone";
           if (oosModal) { oosModal.style.display = "flex"; oosModal.classList.remove("hidden"); }
           try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const ctx  = new (window.AudioContext || window.webkitAudioContext)();
             const osc  = ctx.createOscillator();
             const gain = ctx.createGain();
             osc.connect(gain); gain.connect(ctx.destination);
@@ -520,120 +520,93 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // CAT-F  ── fully self-contained IIFE, no CAT-A variables shared
+  // CAT-F  ── 3-page flow matching original Tkinter app
+  //           Page 1: Country code
+  //           Page 2: Configure Device 1 → Configure Device 2
+  //           Page 3: Test credentials + Start/Pause/Resume/Stop + Logs
+  // All in its own IIFE — no CAT-A variables shared
   // ═══════════════════════════════════════════════════════════════════════
 
   (function initCatF() {
 
-    // ── Country list ───────────────────────────────────────────────────
+    // ── Country list ──────────────────────────────────────────────────
     const COUNTRIES = [
-      { c: "Afghanistan",           code: "+93"  },
-      { c: "Albania",               code: "+355" },
-      { c: "Algeria",               code: "+213" },
-      { c: "Argentina",             code: "+54"  },
-      { c: "Australia",             code: "+61"  },
-      { c: "Austria",               code: "+43"  },
-      { c: "Bangladesh",            code: "+880" },
-      { c: "Belgium",               code: "+32"  },
-      { c: "Brazil",                code: "+55"  },
-      { c: "Canada",                code: "+1"   },
-      { c: "Chile",                 code: "+56"  },
-      { c: "China",                 code: "+86"  },
-      { c: "Colombia",              code: "+57"  },
-      { c: "Czech Republic",        code: "+420" },
-      { c: "Denmark",               code: "+45"  },
-      { c: "Egypt",                 code: "+20"  },
-      { c: "Ethiopia",              code: "+251" },
-      { c: "Finland",               code: "+358" },
-      { c: "France",                code: "+33"  },
-      { c: "Germany",               code: "+49"  },
-      { c: "Ghana",                 code: "+233" },
-      { c: "Greece",                code: "+30"  },
-      { c: "Hungary",               code: "+36"  },
-      { c: "India",                 code: "+91"  },
-      { c: "Indonesia",             code: "+62"  },
-      { c: "Iran",                  code: "+98"  },
-      { c: "Iraq",                  code: "+964" },
-      { c: "Ireland",               code: "+353" },
-      { c: "Israel",                code: "+972" },
-      { c: "Italy",                 code: "+39"  },
-      { c: "Japan",                 code: "+81"  },
-      { c: "Jordan",                code: "+962" },
-      { c: "Kazakhstan",            code: "+7"   },
-      { c: "Kenya",                 code: "+254" },
-      { c: "Kuwait",                code: "+965" },
-      { c: "Lebanon",               code: "+961" },
-      { c: "Malaysia",              code: "+60"  },
-      { c: "Mexico",                code: "+52"  },
-      { c: "Morocco",               code: "+212" },
-      { c: "Netherlands",           code: "+31"  },
-      { c: "New Zealand",           code: "+64"  },
-      { c: "Nigeria",               code: "+234" },
-      { c: "Norway",                code: "+47"  },
-      { c: "Pakistan",              code: "+92"  },
-      { c: "Philippines",           code: "+63"  },
-      { c: "Poland",                code: "+48"  },
-      { c: "Portugal",              code: "+351" },
-      { c: "Qatar",                 code: "+974" },
-      { c: "Romania",               code: "+40"  },
-      { c: "Russia",                code: "+7"   },
-      { c: "Saudi Arabia",          code: "+966" },
-      { c: "Singapore",             code: "+65"  },
-      { c: "South Africa",          code: "+27"  },
-      { c: "South Korea",           code: "+82"  },
-      { c: "Spain",                 code: "+34"  },
-      { c: "Sri Lanka",             code: "+94"  },
-      { c: "Sweden",                code: "+46"  },
-      { c: "Switzerland",           code: "+41"  },
-      { c: "Taiwan",                code: "+886" },
-      { c: "Tanzania",              code: "+255" },
-      { c: "Thailand",              code: "+66"  },
-      { c: "Tunisia",               code: "+216" },
-      { c: "Turkey",                code: "+90"  },
-      { c: "UAE",                   code: "+971" },
-      { c: "Uganda",                code: "+256" },
-      { c: "Ukraine",               code: "+380" },
-      { c: "United Kingdom",        code: "+44"  },
-      { c: "United States",         code: "+1"   },
-      { c: "Venezuela",             code: "+58"  },
-      { c: "Vietnam",               code: "+84"  },
+      { c: "Afghanistan",    code: "+93"  }, { c: "Albania",       code: "+355" },
+      { c: "Algeria",        code: "+213" }, { c: "Argentina",     code: "+54"  },
+      { c: "Australia",      code: "+61"  }, { c: "Austria",       code: "+43"  },
+      { c: "Bangladesh",     code: "+880" }, { c: "Belgium",       code: "+32"  },
+      { c: "Brazil",         code: "+55"  }, { c: "Canada",        code: "+1"   },
+      { c: "Chile",          code: "+56"  }, { c: "China",         code: "+86"  },
+      { c: "Colombia",       code: "+57"  }, { c: "Czech Republic",code: "+420" },
+      { c: "Denmark",        code: "+45"  }, { c: "Egypt",         code: "+20"  },
+      { c: "Ethiopia",       code: "+251" }, { c: "Finland",       code: "+358" },
+      { c: "France",         code: "+33"  }, { c: "Germany",       code: "+49"  },
+      { c: "Ghana",          code: "+233" }, { c: "Greece",        code: "+30"  },
+      { c: "Hungary",        code: "+36"  }, { c: "India",         code: "+91"  },
+      { c: "Indonesia",      code: "+62"  }, { c: "Iran",          code: "+98"  },
+      { c: "Iraq",           code: "+964" }, { c: "Ireland",       code: "+353" },
+      { c: "Israel",         code: "+972" }, { c: "Italy",         code: "+39"  },
+      { c: "Japan",          code: "+81"  }, { c: "Jordan",        code: "+962" },
+      { c: "Kazakhstan",     code: "+7"   }, { c: "Kenya",         code: "+254" },
+      { c: "Kuwait",         code: "+965" }, { c: "Lebanon",       code: "+961" },
+      { c: "Malaysia",       code: "+60"  }, { c: "Mexico",        code: "+52"  },
+      { c: "Morocco",        code: "+212" }, { c: "Netherlands",   code: "+31"  },
+      { c: "New Zealand",    code: "+64"  }, { c: "Nigeria",       code: "+234" },
+      { c: "Norway",         code: "+47"  }, { c: "Pakistan",      code: "+92"  },
+      { c: "Philippines",    code: "+63"  }, { c: "Poland",        code: "+48"  },
+      { c: "Portugal",       code: "+351" }, { c: "Qatar",         code: "+974" },
+      { c: "Romania",        code: "+40"  }, { c: "Russia",        code: "+7"   },
+      { c: "Saudi Arabia",   code: "+966" }, { c: "Singapore",     code: "+65"  },
+      { c: "South Africa",   code: "+27"  }, { c: "South Korea",   code: "+82"  },
+      { c: "Spain",          code: "+34"  }, { c: "Sri Lanka",     code: "+94"  },
+      { c: "Sweden",         code: "+46"  }, { c: "Switzerland",   code: "+41"  },
+      { c: "Taiwan",         code: "+886" }, { c: "Tanzania",      code: "+255" },
+      { c: "Thailand",       code: "+66"  }, { c: "Tunisia",       code: "+216" },
+      { c: "Turkey",         code: "+90"  }, { c: "UAE",           code: "+971" },
+      { c: "Uganda",         code: "+256" }, { c: "Ukraine",       code: "+380" },
+      { c: "United Kingdom", code: "+44"  }, { c: "United States", code: "+1"   },
+      { c: "Venezuela",      code: "+58"  }, { c: "Vietnam",       code: "+84"  },
     ];
 
-    // ── DOM refs ───────────────────────────────────────────────────────
-    const catFCard    = document.getElementById("cat-f");
-    const catFScreen  = document.getElementById("cat-f-screen");
-    const homeScr     = document.getElementById("home-screen");
-    const backBtnCatF = document.getElementById("back-home-catf");
+    // ── DOM refs ──────────────────────────────────────────────────────
+    const catFCard   = document.getElementById("cat-f");
+    const catFScreen = document.getElementById("cat-f-screen");
+    const homeScr    = document.getElementById("home-screen");
+    const backBtn    = document.getElementById("back-home-catf");
 
-    const catfStep1     = document.getElementById("catf-step-1");
-    const catfStep2     = document.getElementById("catf-step-2");
-    const catfInfoPanel = document.getElementById("catf-info-panel");
-    const catfLayout    = document.getElementById("cat-f-layout");
+    // Pages
+    const page1 = document.getElementById("catf-page-1");
+    const page2 = document.getElementById("catf-page-2");
+    const page3 = document.getElementById("catf-page-3");
 
+    // Page 1
     const countrySearch = document.getElementById("catf-country-search");
-    const countrySelect = document.getElementById("catf-country-code");
-    const catfTestType  = document.getElementById("catf-test-type");
-    const catfMoPort    = document.getElementById("catf-mo-port");
-    const catfMoPhone   = document.getElementById("catf-mo-phone");
-    const catfMoSw      = document.getElementById("catf-mo-sw");
-    const catfMoImei    = document.getElementById("catf-mo-imei");
-    const catfMtPort    = document.getElementById("catf-mt-port");
-    const catfMtPhone   = document.getElementById("catf-mt-phone");
-    const catfMtSw      = document.getElementById("catf-mt-sw");
-    const catfMtImei    = document.getElementById("catf-mt-imei");
-    const catfNextBtn   = document.getElementById("catf-next-btn");
+    const countrySelect = document.getElementById("catf-country-select");
+    const p1Next        = document.getElementById("catf-p1-next");
 
-    const catfIterations = document.getElementById("catf-iterations");
-    const catfDuration   = document.getElementById("catf-call-duration");
-    const catfDelay      = document.getElementById("catf-call-delay");
-    const catfDevSummary = document.getElementById("catf-device-summary");
+    // Page 2
+    const configureDev1 = document.getElementById("catf-configure-dev1");
+    const configureDev2 = document.getElementById("catf-configure-dev2");
+    const dev1Info      = document.getElementById("catf-dev1-info");
+    const dev2Info      = document.getElementById("catf-dev2-info");
+    const dev2Card      = document.getElementById("catf-dev2-card");
+    const p2Back        = document.getElementById("catf-p2-back");
+    const p2Next        = document.getElementById("catf-p2-next");
+
+    // Page 3
+    const summaryStrip    = document.getElementById("catf-summary-strip");
+    const catfTestType    = document.getElementById("catf-test-type");
+    const catfIterations  = document.getElementById("catf-iterations");
+    const catfDuration    = document.getElementById("catf-call-duration");
+    const catfDelay       = document.getElementById("catf-call-delay");
+    const catfMtPhone     = document.getElementById("catf-mt-phone-override");
     const catfProgressBar = document.getElementById("catf-progress-bar");
     const catfProgressTxt = document.getElementById("catf-progress-text");
     const catfStatusBadge = document.getElementById("catf-status-badge");
     const catfPreRunActs  = document.getElementById("catf-pre-run-actions");
     const catfControlBtns = document.getElementById("catf-control-buttons");
-    const catfBackBtn     = document.getElementById("catf-back-btn");
-    const catfResetBtn    = document.getElementById("catf-reset-btn");
+    const p3Back          = document.getElementById("catf-p3-back");
+    const p3Reset         = document.getElementById("catf-p3-reset");
     const catfStartBtn    = document.getElementById("catf-start-btn");
     const catfPauseBtn    = document.getElementById("catf-pause-btn");
     const catfResumeBtn   = document.getElementById("catf-resume-btn");
@@ -641,18 +614,39 @@ document.addEventListener("DOMContentLoaded", () => {
     const catfLogBox      = document.getElementById("catf-log-box");
     const catfFolderBtn   = document.getElementById("catf-open-folder");
 
+    // Configure modal
+    const configModal      = document.getElementById("catf-config-modal");
+    const configModalTitle = document.getElementById("catf-config-modal-title");
+    const modalStepA       = document.getElementById("catf-modal-step-a");
+    const modalStepB       = document.getElementById("catf-modal-step-b");
+    const modalInstruction = document.getElementById("catf-modal-instruction");
+    const modalDetecting   = document.getElementById("catf-modal-detecting");
+    const modalProceedBtn  = document.getElementById("catf-modal-proceed-btn");
+    const modalAtPort      = document.getElementById("catf-modal-at-port");
+    const modalSw          = document.getElementById("catf-modal-sw");
+    const modalImei        = document.getElementById("catf-modal-imei");
+    const modalPhoneInput  = document.getElementById("catf-modal-phone-input");
+    const modalConfirmBtn  = document.getElementById("catf-modal-confirm-btn");
+
+    // Disconnect modal
     const catfDisconModal      = document.getElementById("catf-disconnect-modal");
     const catfDisconMsg        = document.getElementById("catf-disconnect-message");
     const catfCloseDisconModal = document.getElementById("catf-close-disconnect-modal");
 
-    // ── State ──────────────────────────────────────────────────────────
+    // ── State ─────────────────────────────────────────────────────────
+    let selectedCountryCode = "+91";
+    let checkedPorts        = [];      // ports already configured
+    let dev1                = null;    // { at_port, sw_version, imei, phone_number }
+    let dev2                = null;
+    let configuringDevice   = null;    // "dev1" | "dev2"
+
     let catfRunning     = false;
     let catfPaused      = false;
     let catfLastRunning = false;
     let catfPollTimer   = null;
     let catfLogTimer    = null;
 
-    // ── Populate country dropdown ──────────────────────────────────────
+    // ── Country dropdown ──────────────────────────────────────────────
     function populateCountries(filter) {
       countrySelect.innerHTML = "";
       const list = filter
@@ -673,99 +667,217 @@ document.addEventListener("DOMContentLoaded", () => {
     populateCountries("");
     countrySearch.addEventListener("input", () => populateCountries(countrySearch.value.trim()));
 
-    // ── Screen navigation ──────────────────────────────────────────────
+    // ── Navigation ────────────────────────────────────────────────────
     function openCatF() {
       homeScr.classList.add("hidden");
       catFScreen.classList.remove("hidden");
-      showCatFStep(1);
+      showPage(1);
     }
 
     function closeCatF() {
       stopCatFPolling();
       catFScreen.classList.add("hidden");
       homeScr.classList.remove("hidden");
-      resetCatFUI();
+      resetAll();
     }
 
-    function showCatFStep(n) {
-      catfStep1.classList.add("hidden");
-      catfStep2.classList.add("hidden");
-      if (n === 1) {
-        catfStep1.classList.remove("hidden");
-        if (catfInfoPanel) catfInfoPanel.style.visibility = "visible";
-        if (catfLayout)    catfLayout.classList.remove("no-sidebar");
-      }
-      if (n === 2) {
-        catfStep2.classList.remove("hidden");
-        if (catfInfoPanel) catfInfoPanel.style.visibility = "hidden";
-        if (catfLayout)    catfLayout.classList.add("no-sidebar");
-      }
+    function showPage(n) {
+      page1.classList.add("hidden");
+      page2.classList.add("hidden");
+      page3.classList.add("hidden");
+      if (n === 1) page1.classList.remove("hidden");
+      if (n === 2) page2.classList.remove("hidden");
+      if (n === 3) page3.classList.remove("hidden");
     }
 
-    catFCard.addEventListener("click",    openCatF);
-    backBtnCatF.addEventListener("click", closeCatF);
+    catFCard.addEventListener("click", openCatF);
+    backBtn.addEventListener("click",  closeCatF);
 
-    // ── Validation ─────────────────────────────────────────────────────
-    function isValidPort(v)  { return /^COM\d+$/i.test(v.trim()); }
-    function isValidPhone(v) { return /^\+?[0-9]{7,15}$/.test(v.trim()); }
-
-    // ── Step 1 → Step 2 ────────────────────────────────────────────────
-    catfNextBtn.addEventListener("click", () => {
-      const moPort  = catfMoPort.value.trim();
-      const mtPort  = catfMtPort.value.trim();
-      const moPhone = catfMoPhone.value.trim();
-      const mtPhone = catfMtPhone.value.trim();
-
-      if (!moPort  || !isValidPort(moPort))   { alert("Enter a valid MO COM port (e.g. COM11)");  catfMoPort.focus();  return; }
-      if (!mtPort  || !isValidPort(mtPort))   { alert("Enter a valid MT COM port (e.g. COM32)");  catfMtPort.focus();  return; }
-      if (!moPhone || !isValidPhone(moPhone)) { alert("Enter a valid MO phone number");            catfMoPhone.focus(); return; }
-      if (!mtPhone || !isValidPhone(mtPhone)) { alert("Enter a valid MT phone number");            catfMtPhone.focus(); return; }
-      if (moPort.toUpperCase() === mtPort.toUpperCase()) { alert("MO and MT ports cannot be the same"); return; }
-
-      // Build summary strip
-      const code = countrySelect.value || "+91";
-      catfDevSummary.innerHTML = `
-        <div class="catf-badge">📱 MO: <strong>${moPort}</strong> &nbsp;·&nbsp; ${moPhone}</div>
-        <div class="catf-badge">📱 MT: <strong>${mtPort}</strong> &nbsp;·&nbsp; ${mtPhone}</div>
-        <div class="catf-badge">🌐 ${code} &nbsp;·&nbsp; ${catfTestType.value}</div>
-      `;
-      showCatFStep(2);
+    // ── PAGE 1 → PAGE 2 ───────────────────────────────────────────────
+    p1Next.addEventListener("click", () => {
+      selectedCountryCode = countrySelect.value || "+91";
+      showPage(2);
     });
 
-    // ── Step 2 back ────────────────────────────────────────────────────
-    catfBackBtn.addEventListener("click", () => showCatFStep(1));
+    // ── PAGE 2 back ───────────────────────────────────────────────────
+    p2Back.addEventListener("click", () => showPage(1));
 
-    // ── Reset params ───────────────────────────────────────────────────
-    catfResetBtn.addEventListener("click", () => {
+    // ── PAGE 2 next (only after both devices configured) ──────────────
+    p2Next.addEventListener("click", () => {
+      buildSummaryStrip();
+      // Pre-fill MT phone on page 3
+      catfMtPhone.value = dev2 ? dev2.phone_number : "";
+      showPage(3);
+    });
+
+    // ── Configure Device buttons ──────────────────────────────────────
+    configureDev1.addEventListener("click", () => openConfigModal("dev1"));
+    configureDev2.addEventListener("click", () => openConfigModal("dev2"));
+
+    function openConfigModal(which) {
+      configuringDevice = which;
+      const label = which === "dev1" ? "1st" : "2nd";
+
+      configModalTitle.textContent  = `Configure ${label} Device`;
+      modalInstruction.textContent  =
+        `Connect the ${label} device via USB, then click Proceed. ` +
+        `The tool will auto-detect the AT port and read device information.`;
+
+      // Reset modal to step A
+      modalStepA.classList.remove("hidden");
+      modalStepB.classList.add("hidden");
+      modalDetecting.classList.add("hidden");
+      modalProceedBtn.disabled    = false;
+      modalProceedBtn.textContent = "Proceed";
+
+      configModal.classList.remove("hidden");
+      configModal.style.display = "flex";
+    }
+
+    function closeConfigModal() {
+      configModal.classList.add("hidden");
+      configModal.style.display = "none";
+    }
+
+    // Proceed → call backend to detect AT port
+    modalProceedBtn.addEventListener("click", async () => {
+      modalProceedBtn.disabled    = true;
+      modalProceedBtn.textContent = "Detecting…";
+      modalDetecting.classList.remove("hidden");
+
+      try {
+        const res  = await fetch("/api/cat-f/detect-device", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ checked_ports: checkedPorts }),
+        });
+        const data = await res.json();
+
+        if (data.status !== "success") {
+          alert(data.message || "Device not found. Please check USB connection and try again.");
+          modalProceedBtn.disabled    = false;
+          modalProceedBtn.textContent = "Proceed";
+          modalDetecting.classList.add("hidden");
+          return;
+        }
+
+        // Show device info + phone number edit
+        modalAtPort.textContent    = data.at_port;
+        modalSw.textContent        = data.sw_version;
+        modalImei.textContent      = data.imei;
+        modalPhoneInput.value      = data.phone_number;
+
+        modalStepA.classList.add("hidden");
+        modalStepB.classList.remove("hidden");
+
+      } catch (e) {
+        console.error("CAT-F detect error:", e);
+        alert("Error detecting device. Please try again.");
+        modalProceedBtn.disabled    = false;
+        modalProceedBtn.textContent = "Proceed";
+        modalDetecting.classList.add("hidden");
+      }
+    });
+
+    // Confirm device info
+    modalConfirmBtn.addEventListener("click", () => {
+      const phone = modalPhoneInput.value.trim();
+      if (!phone) { alert("Please enter the phone number"); return; }
+
+      const info = {
+        at_port:      modalAtPort.textContent,
+        sw_version:   modalSw.textContent,
+        imei:         modalImei.textContent,
+        phone_number: phone,
+      };
+
+      // Mark this port as used so the 2nd device detection skips it
+      if (!checkedPorts.includes(info.at_port)) {
+        checkedPorts.push(info.at_port);
+      }
+
+      if (configuringDevice === "dev1") {
+        dev1 = info;
+        dev1Info.innerHTML = buildDeviceInfoHTML(info, "1st");
+        configureDev1.textContent  = "✔ Configured";
+        configureDev1.disabled     = true;
+        configureDev1.classList.add("catf-btn-done");
+
+        // Unlock dev2
+        dev2Card.classList.remove("catf-device-disabled");
+        configureDev2.disabled = false;
+        dev2Info.innerHTML = `<span class="catf-info-placeholder">Ready to configure</span>`;
+
+      } else {
+        dev2 = info;
+        dev2Info.innerHTML = buildDeviceInfoHTML(info, "2nd");
+        configureDev2.textContent = "✔ Configured";
+        configureDev2.disabled    = true;
+        configureDev2.classList.add("catf-btn-done");
+
+        // Unlock Next button
+        p2Next.disabled = false;
+      }
+
+      closeConfigModal();
+    });
+
+    function buildDeviceInfoHTML(info, label) {
+      return `
+        <table class="catf-info-table">
+          <tr><td>AT Port</td><td><strong>${info.at_port}</strong></td></tr>
+          <tr><td>SW Version</td><td>${info.sw_version}</td></tr>
+          <tr><td>IMEI</td><td>${info.imei}</td></tr>
+          <tr><td>Phone</td><td>${info.phone_number}</td></tr>
+        </table>
+      `;
+    }
+
+    // ── PAGE 3 back ───────────────────────────────────────────────────
+    p3Back.addEventListener("click", () => showPage(2));
+
+    // ── PAGE 3 reset ──────────────────────────────────────────────────
+    p3Reset.addEventListener("click", () => {
       catfIterations.value = "10";
       catfDuration.value   = "30";
       catfDelay.value      = "5";
     });
 
-    // ── Start test ─────────────────────────────────────────────────────
+    // ── Summary strip ─────────────────────────────────────────────────
+    function buildSummaryStrip() {
+      if (!dev1 || !dev2) return;
+      summaryStrip.innerHTML = `
+        <div class="catf-sum-badge">📱 Dev1: <strong>${dev1.at_port}</strong> · ${dev1.phone_number}</div>
+        <div class="catf-sum-badge">📱 Dev2: <strong>${dev2.at_port}</strong> · ${dev2.phone_number}</div>
+        <div class="catf-sum-badge">🌐 ${selectedCountryCode}</div>
+      `;
+    }
+
+    // ── Start test ────────────────────────────────────────────────────
     catfStartBtn.addEventListener("click", async () => {
       const itr = parseInt(catfIterations.value);
       const dur = parseInt(catfDuration.value);
       const dly = parseInt(catfDelay.value);
+      const mt  = catfMtPhone.value.trim() || dev2.phone_number;
 
-      if (!itr || itr < 1)        { alert("Iterations must be at least 1");          return; }
-      if (!dur || dur < 5)        { alert("Call Duration must be at least 5 seconds"); return; }
-      if (isNaN(dly) || dly < 0) { alert("Call Delay cannot be negative");            return; }
+      if (!itr || itr < 1)       { alert("Iterations must be at least 1");           return; }
+      if (!dur || dur < 5)       { alert("Call Duration must be at least 5 seconds"); return; }
+      if (isNaN(dly) || dly < 0){ alert("Call Delay cannot be negative");             return; }
 
       const payload = {
-        mo_port:       catfMoPort.value.trim(),
-        mt_port:       catfMtPort.value.trim(),
-        mo_phone:      catfMoPhone.value.trim(),
-        mt_phone:      catfMtPhone.value.trim(),
-        mo_sw:         catfMoSw.value.trim()   || "N/A",
-        mt_sw:         catfMtSw.value.trim()   || "N/A",
-        mo_imei:       catfMoImei.value.trim() || "N/A",
-        mt_imei:       catfMtImei.value.trim() || "N/A",
+        mo_port:       dev1.at_port,
+        mt_port:       dev2.at_port,
+        mo_phone:      dev1.phone_number,
+        mt_phone:      mt,
+        mo_sw:         dev1.sw_version,
+        mt_sw:         dev2.sw_version,
+        mo_imei:       dev1.imei,
+        mt_imei:       dev2.imei,
         test_type:     catfTestType.value,
         iterations:    itr,
         call_duration: dur,
         call_delay:    dly,
-        country_code:  countrySelect.value || "+91",
+        country_code:  selectedCountryCode,
       };
 
       try {
@@ -775,7 +887,6 @@ document.addEventListener("DOMContentLoaded", () => {
           body:    JSON.stringify(payload),
         });
         const data = await res.json();
-
         if (data.status !== "started") {
           alert("Failed to start: " + (data.message || "unknown error"));
           return;
@@ -801,11 +912,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       } catch (err) {
         console.error("CAT-F start error:", err);
-        alert("Failed to start CAT-F test. Check console for details.");
+        alert("Failed to start CAT-F test.");
       }
     });
 
-    // ── Pause ──────────────────────────────────────────────────────────
+    // ── Pause / Resume / Stop ─────────────────────────────────────────
     catfPauseBtn.addEventListener("click", async () => {
       try {
         const res  = await fetch("/api/cat-f/pause", { method: "POST" });
@@ -819,7 +930,6 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (e) { alert("Failed to pause test"); }
     });
 
-    // ── Resume ─────────────────────────────────────────────────────────
     catfResumeBtn.addEventListener("click", async () => {
       try {
         const res  = await fetch("/api/cat-f/resume", { method: "POST" });
@@ -833,19 +943,17 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (e) { alert("Failed to resume test"); }
     });
 
-    // ── Stop ───────────────────────────────────────────────────────────
     catfStopBtn.addEventListener("click", async () => {
       if (!confirm("Are you sure you want to stop the CAT-F test?")) return;
       try {
         const res  = await fetch("/api/cat-f/stop", { method: "POST" });
         const data = await res.json();
-        if (data.status === "success") {
-          onTestEnded("stopped");
-        } else { alert(data.message || "Failed to stop"); }
+        if (data.status === "success") onTestEnded("stopped");
+        else alert(data.message || "Failed to stop");
       } catch (e) { alert("Failed to stop test"); }
     });
 
-    // ── Folder button ──────────────────────────────────────────────────
+    // ── Folder button ─────────────────────────────────────────────────
     catfFolderBtn.addEventListener("click", async () => {
       try {
         const res  = await fetch("/api/cat-f/open-folder", { method: "POST" });
@@ -854,7 +962,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (e) { alert("Failed to open output folder"); }
     });
 
-    // ── Disconnect modal close ─────────────────────────────────────────
+    // ── Disconnect modal ──────────────────────────────────────────────
     if (catfCloseDisconModal) {
       catfCloseDisconModal.addEventListener("click", () => {
         catfDisconModal.classList.add("hidden");
@@ -862,7 +970,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // ── Status polling ─────────────────────────────────────────────────
+    // ── Polling ───────────────────────────────────────────────────────
     function startCatFPolling() {
       stopCatFPolling();
 
@@ -872,13 +980,11 @@ document.addEventListener("DOMContentLoaded", () => {
           const res  = await fetch("/api/cat-f/status");
           const data = await res.json();
 
-          // Progress
           const pct = data.progress || 0;
           catfProgressBar.value     = pct;
           catfProgressTxt.innerText =
             `Progress: ${pct}%  (${data.current_iteration || 0} / ${data.total_iterations || 0} iterations)`;
 
-          // Detect completion
           const nowRunning = data.test_running === true;
           if (catfLastRunning && !nowRunning) {
             if      (data.state === "DONE")    onTestEnded("done");
@@ -887,16 +993,12 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           catfLastRunning = nowRunning;
 
-          // Running badge update
-          if (nowRunning && !catfPaused) {
+          if (nowRunning && !catfPaused)
             setBadge("running",
               `▶ Running — iter ${data.current_iteration || 0}/${data.total_iterations || 0}`);
-          }
 
-          // Device disconnection during test
           if (data.device_disconnected && nowRunning) {
-            catfDisconMsg.textContent =
-              "A device disconnected. Test paused. Reconnect and click Resume.";
+            catfDisconMsg.textContent = "A device disconnected. Test paused. Reconnect and click Resume.";
             catfDisconModal.classList.remove("hidden");
             catfDisconModal.style.display = "flex";
             catfPaused = true;
@@ -904,8 +1006,7 @@ document.addEventListener("DOMContentLoaded", () => {
             catfResumeBtn.classList.remove("hidden");
             setBadge("paused", "⏸ Paused — device disconnected");
           }
-
-        } catch (e) { /* network hiccup — ignore */ }
+        } catch (e) {}
       }, 1000);
 
       catfLogTimer = setInterval(async () => {
@@ -913,7 +1014,6 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           const res  = await fetch("/api/cat-f/logs");
           const logs = await res.json();
-          // Auto-scroll only when user is already at bottom
           const atBottom =
             catfLogBox.scrollHeight - catfLogBox.scrollTop <= catfLogBox.clientHeight + 30;
           catfLogBox.innerText = logs.join("\n");
@@ -927,7 +1027,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (catfLogTimer)  { clearInterval(catfLogTimer);  catfLogTimer  = null; }
     }
 
-    // ── Post-test UI ───────────────────────────────────────────────────
+    // ── Post-test UI ──────────────────────────────────────────────────
     function onTestEnded(reason, errMsg) {
       catfRunning = false;
       catfPaused  = false;
@@ -941,7 +1041,7 @@ document.addEventListener("DOMContentLoaded", () => {
         catfProgressBar.value     = 100;
         catfProgressTxt.innerText = "Progress: 100%";
         setBadge("done", "✅ Test completed");
-        setTimeout(() => alert("CAT-F test completed successfully!\nReport saved to the output folder."), 100);
+        setTimeout(() => alert("CAT-F test completed!\nReport saved to the output folder."), 100);
       } else if (reason === "stopped") {
         setBadge("stopped", "⏹ Stopped by user");
       } else if (reason === "error") {
@@ -950,22 +1050,42 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    function resetCatFUI() {
-      catfRunning     = false;
-      catfPaused      = false;
-      catfLastRunning = false;
-      catfProgressBar.value     = 0;
-      catfProgressTxt.innerText = "Progress: 0%";
-      catfLogBox.innerText      = "";
+    // ── Full reset ────────────────────────────────────────────────────
+    function resetAll() {
+      dev1               = null;
+      dev2               = null;
+      checkedPorts       = [];
+      configuringDevice  = null;
+      catfRunning        = false;
+      catfPaused         = false;
+      catfLastRunning    = false;
+
+      // Reset page 2 UI
+      dev1Info.innerHTML = `<span class="catf-info-placeholder">Not configured yet</span>`;
+      dev2Info.innerHTML = `<span class="catf-info-placeholder">Configure 1st device first</span>`;
+      configureDev1.textContent = "Configure 1st Device";
+      configureDev1.disabled    = false;
+      configureDev1.classList.remove("catf-btn-done");
+      configureDev2.textContent = "Configure 2nd Device";
+      configureDev2.disabled    = true;
+      configureDev2.classList.remove("catf-btn-done");
+      dev2Card.classList.add("catf-device-disabled");
+      p2Next.disabled = true;
+
+      // Reset page 3 UI
+      catfProgressBar.value       = 0;
+      catfProgressTxt.innerText   = "Progress: 0%";
+      catfLogBox.innerText        = "";
       catfFolderBtn.style.display = "none";
       catfControlBtns.classList.add("hidden");
       catfControlBtns.style.display = "none";
       catfPreRunActs.classList.remove("hidden");
-      catfStatusBadge.className = "status-badge hidden";
+      catfStatusBadge.className = "catf-status-badge hidden";
+      summaryStrip.innerHTML    = "";
     }
 
     function setBadge(type, text) {
-      catfStatusBadge.className   = `status-badge badge-${type}`;
+      catfStatusBadge.className   = `catf-status-badge catf-badge-${type}`;
       catfStatusBadge.textContent = text;
     }
 

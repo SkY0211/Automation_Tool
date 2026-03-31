@@ -229,7 +229,7 @@ def detect_device():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # =====================================================
-# CAT-F API ENDPOINTS (new)
+# CAT-F API ENDPOINTS
 # =====================================================
 
 @app.route("/api/cat-f/start", methods=["POST"])
@@ -296,6 +296,49 @@ def open_cat_f_output_folder():
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route("/api/cat-f/detect-device", methods=["POST"])
+def catf_detect_device():
+    """
+    Auto-detect a serial COM port and extract device info via AT commands.
+    Mirrors the original CAT-F find_at_port + extract_device_info flow.
+    Body: { "checked_ports": ["COM11"] }   <- ports already used
+    """
+    try:
+        data          = request.json or {}
+        checked_ports = data.get("checked_ports", [])
+
+        from backend.cat_f_tool.src.utility.utils  import find_at_port, extract_device_info
+        from backend.cat_f_tool.src.utility.logger import CustomLogger as CatFLogger
+        from backend.cat_f_tool.src.data.dir_paths import Paths
+        import tempfile, os
+
+        # Use a temp dir for the logger if no session folder exists yet
+        log_dir = Paths.latest_log_dir_path if Paths.latest_log_dir_path else tempfile.gettempdir()
+        logger  = CatFLogger("catf_detect", log_dir)
+
+        at_port = find_at_port(list(checked_ports), logger)
+
+        if at_port is None:
+            return jsonify({
+                "status":  "error",
+                "message": "No device found. Please make sure the device is properly connected and try again."
+            }), 200
+
+        device_info = extract_device_info(at_port, logger)
+
+        return jsonify({
+            "status":      "success",
+            "at_port":     at_port,
+            "sw_version":  device_info.get("Software Version", "Not found"),
+            "imei":        device_info.get("IMEI",             "Not found"),
+            "phone_number": device_info.get("Phone Number",    "Not found"),
+        }), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 # =====================================================
 # FLASK RUNNER
 # =====================================================
@@ -317,10 +360,8 @@ if __name__ == "__main__":
     print("🚀 AUTOMATION TOOL STARTING")
     print("=" * 60)
 
-    # Start device monitor (CAT-A)
     start_device_monitor()
 
-    # Start Flask in background
     flask_thread = threading.Thread(target=start_flask, daemon=True)
     flask_thread.start()
 
@@ -328,7 +369,6 @@ if __name__ == "__main__":
     print("✅ Device monitor started")
     print("=" * 60)
 
-    # Start desktop window
     webview.create_window(
         title="Automation Tool – Integration Dashboard",
         url="http://127.0.0.1:5000",
