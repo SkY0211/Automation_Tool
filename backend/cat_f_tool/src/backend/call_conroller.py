@@ -48,17 +48,15 @@ class CallTester:
         self.duration   = TestCred.call_duration
         self.delay      = TestCred.call_delay
 
-        # Select MO-MT devices according to Test_type
-        if self.test_type == "MO calls" or self.test_type == "MO-MT calls":
-            self.mo_sw   = DeviceInfo.dev1["Software Version"]
-            self.mo_imei = DeviceInfo.dev1["IMEI"]
-            self.mo_port = DeviceInfo.dev1["AT Port"]
-            self.mo_no   = DeviceInfo.dev1["Phone Number"]
-            self.mt_sw   = DeviceInfo.dev2["Software Version"]
-            self.mt_imei = DeviceInfo.dev2["IMEI"]
-            self.mt_port = DeviceInfo.dev2["AT Port"]
-            self.mt_no   = DeviceInfo.dev2["Phone Number"]
-        if self.test_type == "MT calls":
+        # Select caller/receiver devices according to test type.
+        # perform_call() always dials from self.mo_port to self.mt_no,
+        # so "caller" maps to mo_port and "receiver" maps to mt_port/mt_no.
+        #
+        # "MO calls"    : MT device is the CALLER, MO device receives
+        # "MT calls"    : MO device is the CALLER, MT device receives
+        # "MO-MT calls" : phase1 = MO calls MT, phase2 = MT calls MO
+        if self.test_type == "MO calls":
+            # Caller = MT (dev2), Receiver = MO (dev1)
             self.mo_sw   = DeviceInfo.dev2["Software Version"]
             self.mo_imei = DeviceInfo.dev2["IMEI"]
             self.mo_port = DeviceInfo.dev2["AT Port"]
@@ -67,6 +65,26 @@ class CallTester:
             self.mt_imei = DeviceInfo.dev1["IMEI"]
             self.mt_port = DeviceInfo.dev1["AT Port"]
             self.mt_no   = DeviceInfo.dev1["Phone Number"]
+        if self.test_type == "MT calls":
+            # Caller = MO (dev1), Receiver = MT (dev2)
+            self.mo_sw   = DeviceInfo.dev1["Software Version"]
+            self.mo_imei = DeviceInfo.dev1["IMEI"]
+            self.mo_port = DeviceInfo.dev1["AT Port"]
+            self.mo_no   = DeviceInfo.dev1["Phone Number"]
+            self.mt_sw   = DeviceInfo.dev2["Software Version"]
+            self.mt_imei = DeviceInfo.dev2["IMEI"]
+            self.mt_port = DeviceInfo.dev2["AT Port"]
+            self.mt_no   = DeviceInfo.dev2["Phone Number"]
+        if self.test_type == "MO-MT calls":
+            # Phase 1: MO (dev1) calls MT (dev2)
+            self.mo_sw   = DeviceInfo.dev1["Software Version"]
+            self.mo_imei = DeviceInfo.dev1["IMEI"]
+            self.mo_port = DeviceInfo.dev1["AT Port"]
+            self.mo_no   = DeviceInfo.dev1["Phone Number"]
+            self.mt_sw   = DeviceInfo.dev2["Software Version"]
+            self.mt_imei = DeviceInfo.dev2["IMEI"]
+            self.mt_port = DeviceInfo.dev2["AT Port"]
+            self.mt_no   = DeviceInfo.dev2["Phone Number"]
 
         # Report workbook
         self.bold_font = Font(bold=True)
@@ -116,6 +134,8 @@ class CallTester:
         self._save_workbook()
 
     def _switch_mo_mt(self):
+        """Phase 2 of MO-MT calls: MT device (dev2) now calls MO device (dev1)."""
+        # Caller = MT (dev2), Receiver = MO (dev1)
         self.mo_sw   = DeviceInfo.dev2["Software Version"]
         self.mo_imei = DeviceInfo.dev2["IMEI"]
         self.mo_port = DeviceInfo.dev2["AT Port"]
@@ -219,11 +239,17 @@ class CallTester:
                                 "Fail", "MO failed to establish call")
             return
 
-        self.logger.log("MO confirmed dialing. Listening for RING on MT...")
+        self.logger.log("MO confirmed dialing. Detecting RING and answering on MT...")
 
-        # ── Step 6: Listen on MT port for incoming RING ───────────────────────
-        # 30 seconds gives plenty of time even on congested networks
-        ring_detected = wait_for_ring_on_mt(self.mt_port, timeout_sec=30, logger=self.logger)
+        # Steps 6+7: detect RING and answer on the SAME open serial connection.
+        # wait_for_ring_and_answer never closes the port between ring-detection
+        # and ATA, which is required for feature phones like HMD Wonka Touch:
+        # reopening the port resets their pending-call state so ATA finds
+        # nothing to answer.
+        from backend.cat_f_tool.src.backend.helper import wait_for_ring_and_answer
+        ring_detected, answered = wait_for_ring_and_answer(
+            self.mt_port, timeout_sec=30, logger=self.logger, answer=True
+        )
 
         if not ring_detected:
             self.logger.log("MT did not receive incoming call within 30s.")
@@ -232,10 +258,6 @@ class CallTester:
             self._update_report(current_itr, date, start_time, "NA", "00",
                                 "Fail", "MT did not ring")
             return
-
-        # ── Step 7: Answer the call on MT ─────────────────────────────────────
-        self.logger.log("RING detected on MT. Answering call...")
-        answered = answer_call_on_mt(self.mt_port, self.logger)
 
         if not answered:
             self.logger.log("MT failed to answer the call.")

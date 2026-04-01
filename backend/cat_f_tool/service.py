@@ -118,18 +118,35 @@ def _run_cat_f(config: dict):
         return
 
     # ── Populate data-classes (replaces Tkinter-based user input) ────────────
+    def _normalize_phone(number, code):
+        """
+        Strip any existing country-code prefix so every phone number is
+        stored in local format (digits only, no +CC prefix).
+        dial_number() in helper.py re-adds the country code on its
+        international retry, so storing the prefix here would produce
+        a double-prefixed number like +9191XXXXXXXXXX which the network
+        rejects as invalid -- causing MT->MO calls to fail.
+        """
+        number    = number.strip()
+        code_bare = code.lstrip("+")
+        if number.startswith("+"):
+            number = number.lstrip("+")
+        if number.startswith(code_bare):
+            number = number[len(code_bare):]
+        return number
+
     DeviceInfo.country = ""
     DeviceInfo.code    = country_code
     DeviceInfo.dev1    = {
         "Software Version": mo_sw,
         "IMEI":             mo_imei,
-        "Phone Number":     mo_phone,
+        "Phone Number":     _normalize_phone(mo_phone, country_code),
         "AT Port":          mo_port,
     }
     DeviceInfo.dev2    = {
         "Software Version": mt_sw,
         "IMEI":             mt_imei,
-        "Phone Number":     mt_phone,
+        "Phone Number":     _normalize_phone(mt_phone, country_code),
         "AT Port":          mt_port,
     }
 

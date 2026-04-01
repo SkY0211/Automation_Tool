@@ -137,32 +137,99 @@ def get_call_state(at_port: str, logger: CustomLogger):
                 'number': 'NA', 'type': 'NA', 'error': 'NA'}
 
 
-def wait_for_ring_on_mt(mt_port: str, timeout_sec: int, logger: CustomLogger) -> bool:
-    """
-    Open the MT serial port and listen for an incoming RING unsolicited result code.
-    Works for both standard AT+CLCC phones and 2G Unisoc feature phones
-    that only emit RING / +CSYS: 1 URCs.
+def wait_for_ring_on_mt(mt_port, timeout_sec, logger):
+    """Backward-compat wrapper: detect RING only (no answer)."""
+    ring, _ = wait_for_ring_and_answer(mt_port, timeout_sec, logger, answer=False)
+    return ring
 
-    Returns True if RING detected within timeout, False otherwise.
+
+def wait_for_ring_and_answer(mt_port, timeout_sec, logger, answer=True):
     """
-    logger.log(f"Listening for RING on MT port {mt_port} (timeout={timeout_sec}s)...")
+    Keep the MT serial port open the entire time: detect RING then send ATA
+    on the SAME open connection without ever closing it in between.
+
+    This is required for feature phones like the HMD Wonka Touch (Unisoc).
+    Closing and reopening the port between ring-detection and ATA resets the
+    modem pending-call state on these devices so ATA finds nothing to answer.
+    Keeping one persistent connection avoids that race condition entirely.
+
+    Returns: (ring_detected: bool, answered: bool)
+    """
+    logger.log("Listening for RING on MT port {} (timeout={}s)...".format(mt_port, timeout_sec))
+    ring_detected = False
+    answered      = False
     try:
-        with serial.Serial(mt_port, baudrate=115200, timeout=0.5) as ser:
-            # Flush any stale data
-            ser.reset_input_buffer()
-            deadline = time.time() + timeout_sec
-            while time.time() < deadline:
-                line = ser.readline().decode(errors='ignore').strip()
-                if line:
-                    logger.log(f"  MT serial line: {repr(line)}")
-                if any(kw in line.upper() for kw in ("RING", "+CSYS: 1", "+CLCC:", "INCOMING")):
-                    logger.log(f"Incoming call signal detected on MT port {mt_port}: {repr(line)}")
-                    return True
-        logger.log(f"No RING detected on {mt_port} within {timeout_sec}s")
-        return False
+        ser = serial.Serial(mt_port, baudrate=115200, timeout=0.5)
+        ser.reset_input_buffer()
+        deadline = time.time() + timeout_sec
+
+        # Phase 1: wait for RING on the open port
+        while time.time() < deadline:
+            line = ser.readline().decode(errors="ignore").strip()
+            if line:
+                logger.log("  MT rx: {}".format(repr(line)))
+            if any(kw in line.upper() for kw in
+                   ("RING", "+CSYS: 1", "+CLCC:", "INCOMING", "+CRING")):
+                logger.log("RING detected on {}: {}".format(mt_port, repr(line)))
+                ring_detected = True
+                break
+
+        if not ring_detected:
+            logger.log("No RING on {} within {}s".format(mt_port, timeout_sec))
+            ser.close()
+            return False, False
+
+        if not answer:
+            ser.close()
+            return True, False
+
+        # Phase 2: answer on the SAME open port (no close/reopen)
+        # A short pause lets the network finish alerting before we send ATA
+        time.sleep(0.3)
+        for attempt in range(3):
+            try:
+                ser.reset_input_buffer()
+                ser.write(b"ATA\r\n")
+                logger.log("ATA sent (attempt {}) on {}".format(attempt + 1, mt_port))
+                # Read for up to 4 s in small chunks
+                response    = b""
+                ser.timeout = 0.5
+                deadline_a  = time.time() + 4
+                while time.time() < deadline_a:
+                    chunk = ser.read(256)
+                    if chunk:
+                        response += chunk
+                        logger.log("  ATA rx: {}".format(repr(chunk.decode(errors="ignore"))))
+                    decoded = response.decode(errors="ignore").upper()
+                    if any(kw in decoded for kw in
+                           ("OK", "CONNECT", "NO CARRIER", "ERROR")):
+                        break
+                decoded = response.decode(errors="ignore").upper()
+                logger.log("ATA full response attempt {}: {}".format(attempt + 1, repr(decoded)))
+                if "OK" in decoded or "CONNECT" in decoded:
+                    logger.log("Call answered (OK/CONNECT) on {}".format(mt_port))
+                    answered = True
+                    break
+                if "NO CARRIER" in decoded or "ERROR" in decoded:
+                    logger.log("ATA got NO CARRIER/ERROR attempt {}, retrying...".format(attempt + 1))
+                    time.sleep(1)
+                    continue
+                # Silent response -- feature phones often return nothing after ATA
+                # but the call IS connected. Trust silence after the 1st attempt.
+                if attempt >= 1:
+                    logger.log("ATA silent on {} -- assuming call connected".format(mt_port))
+                    answered = True
+                    break
+                time.sleep(1)
+            except Exception as e:
+                logger.log("ATA attempt {} error on {}".format(attempt + 1, mt_port), e, logging.ERROR)
+                time.sleep(1)
+
+        ser.close()
     except Exception as e:
-        logger.log(f"Error listening for RING on {mt_port}", e, logging.ERROR)
-        return False
+        logger.log("wait_for_ring_and_answer error on {}".format(mt_port), e, logging.ERROR)
+
+    return ring_detected, answered
 
 
 def check_mo_dialing(mo_port: str, logger: CustomLogger) -> bool:
