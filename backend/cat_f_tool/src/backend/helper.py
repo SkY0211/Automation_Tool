@@ -512,3 +512,143 @@ def get_signal_quality_2g3g(serial_port):
     except Exception as e:
         print("Error fetching signal quality:", e)
         return None
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NW PARAMETER COLLECTION  (new — does NOT modify any existing function)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def collect_nw_params(serial_port, logger: CustomLogger) -> dict:
+    """
+    Collect all network parameters reliably available via standard AT commands
+    on both 2G (Unisoc 6531F) and 4G (Unisoc T107) feature phones.
+
+    Collected parameters
+    ────────────────────
+    Universal (2G + 4G):
+      MCC, MNC, Operator name    <- AT+COPS=3,2 / AT+COPS?
+      RSSI_dBm, BER              <- AT+CSQ
+      RAT                        <- AcT field from AT+CREG? or AT+CEREG?
+
+    2G path  (AcT = 0 = GSM):
+      LAC_TAC, Cell_ID           <- AT+CREG=2 / AT+CREG?
+      RSRP_dBm, RSRQ_dB          <- N/A (LTE only)
+
+    4G path  (AcT = 7 = LTE):
+      LAC_TAC, Cell_ID           <- AT+CEREG=2 / AT+CEREG?
+      RSRP_dBm, RSRQ_dB          <- AT+CESQ fields 5-6
+
+    Returns a flat dict with all keys always present (missing values = "N/A").
+    Never raises — exceptions are logged and the partial dict is returned.
+    """
+    nw = {
+        "MCC":      "N/A", "MNC":      "N/A", "Operator": "N/A",
+        "LAC_TAC":  "N/A", "Cell_ID":  "N/A",
+        "RSSI_dBm": "N/A", "BER":      "N/A",
+        "RSRP_dBm": "N/A", "RSRQ_dB":  "N/A",
+        "RAT":      "N/A",
+    }
+
+    def _send(cmd, wait=0.4):
+        try:
+            with serial.Serial(serial_port, baudrate=115200, timeout=2) as s:
+                s.reset_input_buffer()
+                s.write((cmd + "\r\n").encode())
+                time.sleep(wait)
+                return s.read(256).decode(errors="ignore").strip()
+        except Exception as e:
+            logger.log(f"[NW] {cmd} exception: {e}")
+            return ""
+
+    try:
+        # -- STEP 1: MCC + MNC + Operator ---------------------------------
+        _send("AT+COPS=3,2", wait=0.3)
+        cops_resp = _send("AT+COPS?")
+        logger.log(f"[NW] AT+COPS? -> {repr(cops_resp)}")
+
+        m = re.search(r'\+COPS:\s*\d+,\d+,"(\d+)"', cops_resp)
+        if m:
+            plmn = m.group(1)
+            nw["MCC"] = plmn[:3]
+            nw["MNC"] = plmn[3:]
+
+        # Operator name in alpha format
+        _send("AT+COPS=3,0", wait=0.3)
+        cops_alpha = _send("AT+COPS?")
+        m_name = re.search(r'\+COPS:\s*\d+,\d+,"([^"]+)"', cops_alpha)
+        if m_name:
+            nw["Operator"] = m_name.group(1).strip()
+        _send("AT+COPS=3,2", wait=0.3)   # restore numeric mode
+
+        # -- STEP 2: RSSI + BER (AT+CSQ) ---------------------------------
+        csq_resp = _send("AT+CSQ")
+        logger.log(f"[NW] AT+CSQ -> {repr(csq_resp)}")
+        m = re.search(r'\+CSQ:\s*(\d+),(\d+)', csq_resp)
+        if m:
+            rssi_raw = int(m.group(1))
+            ber_raw  = int(m.group(2))
+            nw["RSSI_dBm"] = str(-113 + rssi_raw * 2) if rssi_raw != 99 else "unknown"
+            nw["BER"] = str(ber_raw)
+
+        # -- STEP 3: LAC + CID + RAT via AT+CREG=2 -----------------------
+        _send("AT+CREG=2", wait=0.3)
+        creg_resp = _send("AT+CREG?")
+        logger.log(f"[NW] AT+CREG? -> {repr(creg_resp)}")
+
+        m = re.search(
+            r'\+CREG:\s*\d+,\d+,"([0-9A-Fa-f]+)","([0-9A-Fa-f]+)"(?:,(\d+))?',
+            creg_resp
+        )
+        act_value = None
+        if m:
+            try:
+                nw["LAC_TAC"] = str(int(m.group(1), 16))
+                nw["Cell_ID"] = str(int(m.group(2), 16))
+            except ValueError:
+                pass
+            act_value = m.group(3)
+
+        rat_map = {
+            "0": "GSM", "1": "GSM Compact", "2": "UTRAN",
+            "3": "EDGE", "4": "HSDPA", "5": "HSUPA",
+            "6": "HSDPA+HSUPA", "7": "LTE", "8": "LTE-A"
+        }
+        if act_value and act_value in rat_map:
+            nw["RAT"] = rat_map[act_value]
+
+        # -- STEP 4: 4G TAC + Cell ID override via AT+CEREG=2 ------------
+        _send("AT+CEREG=2", wait=0.3)
+        cereg_resp = _send("AT+CEREG?")
+        logger.log(f"[NW] AT+CEREG? -> {repr(cereg_resp)}")
+
+        m4g = re.search(
+            r'\+CEREG:\s*\d+,\d+,"([0-9A-Fa-f]+)","([0-9A-Fa-f]+)"(?:,(\d+))?',
+            cereg_resp
+        )
+        if m4g:
+            try:
+                nw["LAC_TAC"] = str(int(m4g.group(1), 16))
+                nw["Cell_ID"] = str(int(m4g.group(2), 16))
+            except ValueError:
+                pass
+            act4g = m4g.group(3)
+            if act4g and act4g in rat_map:
+                nw["RAT"] = rat_map[act4g]
+
+        # -- STEP 5: RSRP + RSRQ from AT+CESQ (meaningful on LTE) -------
+        cesq_resp = _send("AT+CESQ")
+        logger.log(f"[NW] AT+CESQ -> {repr(cesq_resp)}")
+        m = re.search(r'\+CESQ:\s*(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)', cesq_resp)
+        if m:
+            rsrq_i = int(m.group(5))
+            rsrp_i = int(m.group(6))
+            if rsrp_i != 255:
+                nw["RSRP_dBm"] = str(rsrp_i - 140)
+            if rsrq_i != 255:
+                nw["RSRQ_dB"]  = str(round(rsrq_i / 2.0 - 19.5, 1))
+
+        logger.log(f"[NW] Collected params for {serial_port}: {nw}")
+
+    except Exception as e:
+        logger.log(f"[NW] collect_nw_params exception on {serial_port}: {e}")
+
+    return nw

@@ -1,6 +1,21 @@
-VERSION = "1.3.1"
+VERSION = "1.3.0"
 
-COLUMN_NAMES = ["Iteration", "Date", "Start Time", "End Time", "Duration", "Status", "Comment"]
+COLUMN_NAMES = [
+    # ── Core call result columns (original) ──────────────────────
+    "Iteration", "Date", "Start Time", "End Time", "Duration", "Status", "Comment",
+    # ── MO device NW parameters ───────────────────────────────────
+    "MO_MCC", "MO_MNC", "MO_Operator",
+    "MO_LAC_TAC", "MO_Cell_ID",
+    "MO_RSSI_dBm", "MO_BER",
+    "MO_RSRP_dBm", "MO_RSRQ_dB",
+    "MO_RAT",
+    # ── MT device NW parameters ───────────────────────────────────
+    "MT_MCC", "MT_MNC", "MT_Operator",
+    "MT_LAC_TAC", "MT_Cell_ID",
+    "MT_RSSI_dBm", "MT_BER",
+    "MT_RSRP_dBm", "MT_RSRQ_dB",
+    "MT_RAT",
+]
 
 # Different Coding Schemes of +CME ERROR: <err>
 ERROR_CODES = {

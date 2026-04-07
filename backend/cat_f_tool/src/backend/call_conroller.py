@@ -18,7 +18,8 @@ from backend.cat_f_tool.src.backend.helper import (
     dial_number, receive_call, end_call, get_call_state,
     check_network_registration_status, check_device_disconnection,
     wait_for_ring_on_mt, check_mo_dialing, answer_call_on_mt,
-    setup_mt_for_incoming_call
+    setup_mt_for_incoming_call,
+    collect_nw_params,                 # NEW — NW parameter collection
 )
 from backend.cat_f_tool.src.frontend.connection_break import reconnect
 from backend.cat_f_tool.src.frontend.progress_check   import TestProgress
@@ -138,11 +139,43 @@ class CallTester:
         self.mt_no   = DeviceInfo.dev1["Phone Number"]
 
     def _write_report_columns_names(self, worksheet, columns: List[str], row: int):
-        bg_color = PatternFill(start_color="B0E0E6", end_color="B0E0E6", fill_type="solid")
+        from openpyxl.styles import Alignment as XlAlign
+        from openpyxl.utils import get_column_letter
+
+        bg_color   = PatternFill(start_color="B0E0E6", end_color="B0E0E6", fill_type="solid")
+        mo_color   = PatternFill(start_color="D9EAD3", end_color="D9EAD3", fill_type="solid")
+        mt_color   = PatternFill(start_color="FCE5CD", end_color="FCE5CD", fill_type="solid")
+
+        # Column widths keyed on header name
+        _widths = {
+            "Iteration": 10, "Date": 12, "Start Time": 12, "End Time": 12,
+            "Duration": 10, "Status": 10, "Comment": 22,
+            "MO_MCC": 9,  "MO_MNC": 9,  "MO_Operator": 18,
+            "MO_LAC_TAC": 12, "MO_Cell_ID": 12,
+            "MO_RSSI_dBm": 13, "MO_BER": 8,
+            "MO_RSRP_dBm": 13, "MO_RSRQ_dB": 12,
+            "MO_RAT": 10,
+            "MT_MCC": 9,  "MT_MNC": 9,  "MT_Operator": 18,
+            "MT_LAC_TAC": 12, "MT_Cell_ID": 12,
+            "MT_RSSI_dBm": 13, "MT_BER": 8,
+            "MT_RSRP_dBm": 13, "MT_RSRQ_dB": 12,
+            "MT_RAT": 10,
+        }
+
         for col_idx, column_name in enumerate(columns, 1):
-            cell      = worksheet.cell(row=row, column=col_idx, value=column_name)
-            cell.font = self.bold_font
-            cell.fill = bg_color
+            cell       = worksheet.cell(row=row, column=col_idx, value=column_name)
+            cell.font  = self.bold_font
+            # MO columns → green tint, MT columns → orange tint, core → blue
+            if column_name.startswith("MO_"):
+                cell.fill = mo_color
+            elif column_name.startswith("MT_"):
+                cell.fill = mt_color
+            else:
+                cell.fill = bg_color
+            cell.alignment = XlAlign(horizontal="center", vertical="center", wrap_text=True)
+            col_letter = get_column_letter(col_idx)
+            worksheet.column_dimensions[col_letter].width = _widths.get(column_name, 12)
+
         self._save_workbook()
 
     def _new_sheet_for_mt_calls(self):
@@ -157,8 +190,32 @@ class CallTester:
     def _save_workbook(self):
         self.workbook.save(self.report_file_path)
 
-    def _update_report(self, itr, date, start_time, end_time, duration, result, comment):
-        self.current_sheet.append([itr, date, start_time, end_time, duration, result, comment])
+    def _update_report(self, itr, date, start_time, end_time, duration, result, comment,
+                       nw_mo=None, nw_mt=None):
+        """Append one row to the active sheet — core columns + NW params for MO and MT."""
+        _empty = {
+            "MCC": "N/A", "MNC": "N/A", "Operator": "N/A",
+            "LAC_TAC": "N/A", "Cell_ID": "N/A",
+            "RSSI_dBm": "N/A", "BER": "N/A",
+            "RSRP_dBm": "N/A", "RSRQ_dB": "N/A",
+            "RAT": "N/A",
+        }
+        mo = nw_mo or _empty
+        mt = nw_mt or _empty
+        row = [
+            itr, date, start_time, end_time, duration, result, comment,
+            mo["MCC"],      mo["MNC"],      mo["Operator"],
+            mo["LAC_TAC"],  mo["Cell_ID"],
+            mo["RSSI_dBm"], mo["BER"],
+            mo["RSRP_dBm"], mo["RSRQ_dB"],
+            mo["RAT"],
+            mt["MCC"],      mt["MNC"],      mt["Operator"],
+            mt["LAC_TAC"],  mt["Cell_ID"],
+            mt["RSSI_dBm"], mt["BER"],
+            mt["RSRP_dBm"], mt["RSRQ_dB"],
+            mt["RAT"],
+        ]
+        self.current_sheet.append(row)
         self._save_workbook()
 
     def _make_devices_idle(self):
@@ -269,9 +326,19 @@ class CallTester:
         self.comment       = ""
         self.logger.log(f"Iteration {current_itr} PASS — call held for {hold_secs}s")
 
+        # ── Step 9b: Collect NW parameters from both devices ─────────────────
+        # Collected after the call ends so AT port is free on both sides.
+        # collect_nw_params() never raises — returns N/A for unavailable fields.
+        self.logger.log("Collecting NW parameters from MO and MT devices...")
+        nw_mo = collect_nw_params(self.mo_port, self.logger)
+        nw_mt = collect_nw_params(self.mt_port, self.logger)
+        self.logger.log(f"MO NW params: {nw_mo}")
+        self.logger.log(f"MT NW params: {nw_mt}")
+
         # ── Step 10: Write report ─────────────────────────────────────────────
         self._update_report(current_itr, date, start_time, end_time,
-                            self.call_duration, self.result, self.comment)
+                            self.call_duration, self.result, self.comment,
+                            nw_mo=nw_mo, nw_mt=nw_mt)
 
     def run_test(self, queue: Queue):
         self.logger.log("run_test started")
