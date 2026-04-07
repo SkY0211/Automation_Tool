@@ -837,10 +837,13 @@ document.addEventListener("DOMContentLoaded", () => {
     p3Back.addEventListener("click", () => showPage(2));
 
     // ── PAGE 3 reset ──────────────────────────────────────────────────
-    p3Reset.addEventListener("click", () => {
-      catfIterations.value = "10";
-      catfDuration.value   = "30";
-      catfDelay.value      = "5";
+    p3Reset.addEventListener("click", async () => {
+      if (catfRunning) {
+        try { await fetch("/api/cat-f/stop", { method: "POST" }); } catch (_) {}
+      }
+      stopCatFPolling();
+      resetAll();
+      showPage(1);
     });
 
     // ── Summary strip ─────────────────────────────────────────────────
