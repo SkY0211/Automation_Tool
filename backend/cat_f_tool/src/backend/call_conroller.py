@@ -98,6 +98,9 @@ class CallTester:
         if self.pause_event.isSet():
             self.pause_event.clear()
             self.logger.log(message="Automation Paused.", level=logging.INFO)
+            # End any ongoing call on both sides so devices are idle while paused
+            end_call(self.mo_port, self.logger)
+            end_call(self.mt_port, self.logger)
             self.resume_event.wait()
             self.resume_event.clear()
             self.logger.log(message="Automation Resumed.", level=logging.INFO)
@@ -313,14 +316,43 @@ class CallTester:
         start_time = call_start.strftime("%H:%M:%S")
         hold_secs  = int(self.duration)
         self.logger.log(f"Call connected. Holding for {hold_secs}s...")
-        time.sleep(hold_secs)
+
+        # Interruptible hold — checks pause every second so a pause click
+        # stops the ongoing call immediately instead of waiting for it to finish.
+        elapsed = 0
+        paused_mid_call = False
+        while elapsed < hold_secs:
+            time.sleep(1)
+            elapsed += 1
+            if self.pause_event.isSet():
+                self.pause_event.clear()
+                self.logger.log("Pause detected mid-call — ending call now.")
+                end_call(self.mo_port, self.logger)
+                end_call(self.mt_port, self.logger)
+                self.logger.log(message="Automation Paused.", level=logging.INFO)
+                self.resume_event.wait()
+                self.resume_event.clear()
+                self.logger.log(message="Automation Resumed.", level=logging.INFO)
+                paused_mid_call = True
+                break
 
         # ── Step 9: End call on both sides ────────────────────────────────────
-        end_call(self.mo_port, self.logger)
-        time.sleep(0.5)
-        end_call(self.mt_port, self.logger)
+        # (call already ended inside the hold loop if paused mid-call)
+        if not paused_mid_call:
+            end_call(self.mo_port, self.logger)
+            time.sleep(0.5)
+            end_call(self.mt_port, self.logger)
 
-        end_time           = datetime.now().strftime("%H:%M:%S")
+        end_time = datetime.now().strftime("%H:%M:%S")
+
+        if paused_mid_call:
+            # Iteration was interrupted — log it as Paused and signal run_test
+            # to retry this same iteration number after resume.
+            self.logger.log(f"Iteration {current_itr} interrupted by pause — will retry.")
+            self._update_report(current_itr, date, start_time, end_time,
+                                "00", "Paused", "Call stopped by pause — will retry")
+            return "retry"   # sentinel: run_test must NOT increment current_itr
+
         self.call_duration = self.duration
         self.result        = "Pass"
         self.comment       = ""
@@ -351,7 +383,11 @@ class CallTester:
                 status, _ = check_device_disconnection(self.mo_port, self.mt_port, self.logger)
                 if not status:
                     raise Exception("Device disconnected!")
-                self.perform_call(current_itr)
+                result = self.perform_call(current_itr)
+                if result == "retry":
+                    # Iteration was paused mid-call — retry same iteration number
+                    self.logger.log(f"Retrying iteration {current_itr} after resume.")
+                    continue
                 time.sleep(self.delay)
                 progress.update_progress()
                 queue.put(current_itr)
@@ -397,7 +433,10 @@ class CallTester:
                     status, _ = check_device_disconnection(self.mo_port, self.mt_port, self.logger)
                     if not status:
                         raise Exception("Device disconnected!")
-                    self.perform_call(current_itr)
+                    result = self.perform_call(current_itr)
+                    if result == "retry":
+                        self.logger.log(f"Retrying MT iteration {current_itr} after resume.")
+                        continue
                     time.sleep(self.delay)
                     progress.update_progress()
                     queue.put(current_itr)
