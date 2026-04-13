@@ -41,6 +41,7 @@ class CallTester:
         self.result         = None
         self.home           = home
         self.progress_frame = progress_frame
+        self._wb_lock       = threading.Lock()   # guards concurrent workbook saves
 
         self.logger = CustomLogger("backend", Paths.latest_log_dir_path)
         self.logger.log("Backend code initiated to Start the Call Testing.")
@@ -191,7 +192,8 @@ class CallTester:
         self._save_workbook()
 
     def _save_workbook(self):
-        self.workbook.save(self.report_file_path)
+        with self._wb_lock:
+            self.workbook.save(self.report_file_path)
 
     def _update_report(self, itr, date, start_time, end_time, duration, result, comment,
                        nw_mo=None, nw_mt=None):
@@ -333,7 +335,7 @@ class CallTester:
         # OOS checks never inflate the configured call duration.
         hold_deadline    = time.monotonic() + hold_secs
         paused_mid_call  = False
-        _oos_check_every = 5          # run OOS network check every N seconds
+        _oos_check_every = 5
         _last_oos_check  = time.monotonic()
 
         while time.monotonic() < hold_deadline:
@@ -359,7 +361,6 @@ class CallTester:
                 mo_registered = check_network_registration_status(self.mo_port)
                 mt_registered = check_network_registration_status(self.mt_port)
                 if not mo_registered or not mt_registered:
-                    # Make sure this is truly OOS and not a physical disconnect
                     still_connected, _ = check_device_disconnection(self.mo_port, self.mt_port, self.logger)
                     if not still_connected:
                         raise Exception("Device disconnected!")
@@ -390,23 +391,21 @@ class CallTester:
             self.logger.log(f"Iteration {current_itr} interrupted by pause — will retry.")
             self._update_report(current_itr, date, start_time, end_time,
                                 "00", "Paused", "Call stopped by pause — will retry")
-            return "retry"   # sentinel: run_test must NOT increment current_itr
+            return "retry"
 
         self.call_duration = self.duration
-        self.result        = "Pass"
-        self.comment       = ""
         self.logger.log(f"Iteration {current_itr} PASS — call held for {hold_secs}s")
 
-        # ── Step 9b: Collect NW parameters from both devices ─────────────────
+        # Collect NW params and write report. With the fixed _send() in helper.py
+        # this now takes ~3-5s total instead of ~50s, so the inter-call delay is
+        # self.delay + ~3s which is acceptable.
         self.logger.log("Collecting NW parameters from MO and MT devices...")
         nw_mo = collect_nw_params(self.mo_port, self.logger)
         nw_mt = collect_nw_params(self.mt_port, self.logger)
         self.logger.log(f"MO NW params: {nw_mo}")
         self.logger.log(f"MT NW params: {nw_mt}")
-
-        # ── Step 10: Write report ─────────────────────────────────────────────
         self._update_report(current_itr, date, start_time, end_time,
-                            self.call_duration, self.result, self.comment,
+                            self.call_duration, "Pass", "",
                             nw_mo=nw_mo, nw_mt=nw_mt)
 
     def _check_and_handle_oos(self, current_itr, date, start_time, original_reason):
@@ -505,15 +504,12 @@ class CallTester:
                     raise Exception("Device disconnected!")
                 result = self.perform_call(current_itr)
                 if result == "retry":
-                    # Iteration was paused mid-call — retry same iteration number
                     self.logger.log(f"Retrying iteration {current_itr} after resume.")
                     continue
                 if result == "oos_retry":
-                    # Iteration failed due to OOS — retry same iteration number
                     self.logger.log(f"Retrying iteration {current_itr} after OOS recovery.")
                     continue
                 if result == "oos_abort":
-                    # Test was stopped/changed during OOS wait
                     self.logger.log("OOS abort — ending run_test.")
                     return
                 time.sleep(self.delay)

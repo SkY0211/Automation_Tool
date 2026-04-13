@@ -548,13 +548,22 @@ def collect_nw_params(serial_port, logger: CustomLogger) -> dict:
         "RAT":      "N/A",
     }
 
-    def _send(cmd, wait=0.4):
+    def _send(cmd, wait=0.3):
         try:
-            with serial.Serial(serial_port, baudrate=115200, timeout=2) as s:
+            with serial.Serial(serial_port, baudrate=115200, timeout=0.3) as s:
                 s.reset_input_buffer()
                 s.write((cmd + "\r\n").encode())
                 time.sleep(wait)
-                return s.read(256).decode(errors="ignore").strip()
+                # Read only what is actually in the buffer — don't block waiting
+                # for N bytes. This avoids the old timeout=2 + read(256) pattern
+                # which blocked for 2s on every command waiting for bytes that
+                # were never going to arrive.
+                raw = s.read(s.in_waiting or 1)
+                # Give it one more short window if the response hasn't arrived yet
+                if not raw or (b"OK" not in raw and b"ERROR" not in raw):
+                    time.sleep(0.2)
+                    raw += s.read(s.in_waiting or 1)
+                return raw.decode(errors="ignore").strip()
         except Exception as e:
             logger.log(f"[NW] {cmd} exception: {e}")
             return ""
