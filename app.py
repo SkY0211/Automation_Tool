@@ -31,7 +31,7 @@ from backend.cat_a_tool.service import (
 from backend.cat_a_tool.logger import get_ui_logs
 
 # =====================================================
-# CAT-F BACKEND IMPORTS (new)
+# CAT-F BACKEND IMPORTS
 # =====================================================
 
 from backend.cat_f_tool.service import (
@@ -40,6 +40,7 @@ from backend.cat_f_tool.service import (
     pause_cat_f_test,
     resume_cat_f_test,
     stop_cat_f_test,
+    clear_cat_f_oos_alert,
     get_current_session_folder as get_cat_f_session_folder,
 )
 from backend.cat_f_tool.service import get_ui_logs as get_cat_f_logs
@@ -257,6 +258,8 @@ def api_cat_f_status():
         "device_disconnected": cat_f_state.get("device_disconnected", False),
         "disconnected_device": cat_f_state.get("disconnected_device"),
         "error":               cat_f_state.get("error"),
+        "oos_detected":        cat_f_state.get("oos_detected", False),
+        "oos_devices":         cat_f_state.get("oos_devices", []),
     })
 
 @app.route("/api/cat-f/logs", methods=["GET"])
@@ -277,6 +280,15 @@ def api_resume_cat_f():
 def api_stop_cat_f():
     result = stop_cat_f_test()
     return jsonify(result), 200 if result["status"] == "success" else 400
+
+@app.route("/api/cat-f/clear-oos", methods=["POST"])
+def api_clear_cat_f_oos():
+    """Clear the CAT-F OOS alert so the UI popup can dismiss itself."""
+    try:
+        result = clear_cat_f_oos_alert()
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/api/cat-f/open-folder", methods=["POST"])
 def open_cat_f_output_folder():

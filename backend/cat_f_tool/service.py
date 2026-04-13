@@ -29,6 +29,11 @@ cat_f_state = {
     "device_disconnected": False,
     "disconnected_device": None,
     "error": None,
+    # OOS (Out of Service) alert
+    "oos_detected": False,
+    "oos_devices": [],
+    # Unique ID per test run — lets OOS wait detect a new test was started
+    "test_id": 0,
 }
 
 # ── Threading events (pause / resume / stop) ─────────────────────────────────
@@ -80,6 +85,7 @@ def _run_cat_f(config: dict):
     call_delay    = int(config.get("call_delay", 5))
     country_code  = config.get("country_code", "+91")
 
+    cat_f_state["test_id"] = cat_f_state.get("test_id", 0) + 1
     cat_f_state.update({
         "state":             "RUNNING",
         "message":           "Test started",
@@ -96,6 +102,8 @@ def _run_cat_f(config: dict):
         "device_disconnected": False,
         "disconnected_device": None,
         "error":             None,
+        "oos_detected":      False,
+        "oos_devices":       [],
     })
 
     _add_log(f"CAT-F starting — {test_type}, {iterations} iterations, "
@@ -301,8 +309,18 @@ def stop_cat_f_test():
     if not cat_f_state.get("test_running"):
         return {"status": "error", "message": "No test is running"}
     _stop_event.set()
+    # Also clear any pending OOS alert so the UI unblocks immediately
+    cat_f_state["oos_detected"] = False
+    cat_f_state["oos_devices"]  = []
     _add_log("Stop requested")
     return {"status": "success", "message": "Stop signal sent"}
+
+
+def clear_cat_f_oos_alert():
+    """Clear the CAT-F OOS (Out of Service) alert flag."""
+    cat_f_state["oos_detected"] = False
+    cat_f_state["oos_devices"]  = []
+    return {"status": "success", "message": "OOS alert cleared"}
 
 
 def get_current_session_folder():

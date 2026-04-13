@@ -633,6 +633,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const catfDisconMsg        = document.getElementById("catf-disconnect-message");
     const catfCloseDisconModal = document.getElementById("catf-close-disconnect-modal");
 
+    const catfOosModal      = document.getElementById("catf-oos-modal");
+    const catfOosDevsList   = document.getElementById("catf-oos-devices-list");
+    const catfCloseOosModal = document.getElementById("catf-close-oos-modal");
+
     // ── State ─────────────────────────────────────────────────────────
     let selectedCountryCode = "+91";
     let checkedPorts        = [];      // ports already configured
@@ -973,6 +977,15 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // ── OOS modal close button ────────────────────────────────────────
+    if (catfCloseOosModal) {
+      catfCloseOosModal.addEventListener("click", () => {
+        catfOosModal.classList.add("hidden");
+        catfOosModal.style.display = "none";
+        fetch("/api/cat-f/clear-oos", { method: "POST" }).catch(() => {});
+      });
+    }
+
     // ── Polling ───────────────────────────────────────────────────────
     function startCatFPolling() {
       stopCatFPolling();
@@ -1009,6 +1022,29 @@ document.addEventListener("DOMContentLoaded", () => {
             catfResumeBtn.classList.remove("hidden");
             setBadge("paused", "⏸ Paused — device disconnected");
           }
+
+          // ── OOS detection ─────────────────────────────────────────────
+          if (data.oos_detected && nowRunning) {
+            if (catfOosDevsList) {
+              catfOosDevsList.textContent =
+                Array.isArray(data.oos_devices) && data.oos_devices.length
+                  ? "Affected: " + data.oos_devices.join(", ")
+                  : "Device out of service";
+            }
+            if (catfOosModal) {
+              catfOosModal.classList.remove("hidden");
+              catfOosModal.style.display = "flex";
+            }
+            setBadge("paused", "📵 OOS — waiting for network...");
+            // Auto-dismiss after 4 s and clear server flag
+            setTimeout(() => {
+              if (catfOosModal) {
+                catfOosModal.classList.add("hidden");
+                catfOosModal.style.display = "none";
+              }
+              fetch("/api/cat-f/clear-oos", { method: "POST" }).catch(() => {});
+            }, 4000);
+          }
         } catch (e) {}
       }, 1000);
 
@@ -1035,6 +1071,17 @@ document.addEventListener("DOMContentLoaded", () => {
       catfRunning = false;
       catfPaused  = false;
       stopCatFPolling();
+
+      // Dismiss any lingering OOS or disconnect modals
+      if (catfOosModal) {
+        catfOosModal.classList.add("hidden");
+        catfOosModal.style.display = "none";
+      }
+      if (catfDisconModal) {
+        catfDisconModal.classList.add("hidden");
+        catfDisconModal.style.display = "none";
+      }
+      fetch("/api/cat-f/clear-oos", { method: "POST" }).catch(() => {});
 
       catfControlBtns.classList.add("hidden");
       catfControlBtns.style.display = "none";

@@ -431,6 +431,24 @@
     </div>
 </div>
 
+<!-- CAT-F: OOS (Out of Service) Modal -->
+<div id="catf-oos-modal" class="modal hidden" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header" style="background-color:#fff3e0;">
+            <h2>📵 Out of Service (OOS) Detected</h2>
+        </div>
+        <div class="modal-body">
+            <p><strong>⚠️ A device has entered an OOS zone!</strong></p>
+            <p id="catf-oos-devices-list" style="color:#ff6b6b; font-weight:500;"></p>
+            <p style="margin-top:10px; color:#666; font-size:14px;"><em>This notification will auto-dismiss in 4 seconds…</em></p>
+            <p style="margin-top:10px; font-size:13px;">The test will automatically wait for the device to return to service and then continue from where it left off.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="primary" id="catf-close-oos-modal">OK</button>
+        </div>
+    </div>
+</div>
+
 <script src="js/main.js"></script>
 </body>
 </html>

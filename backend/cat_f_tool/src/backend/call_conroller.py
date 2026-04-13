@@ -276,6 +276,10 @@ class CallTester:
         if not dial_success:
             self.logger.log(f"Dial failed for {self.mt_no} on {self.mo_port}", level=logging.WARNING)
             if mt_ser: mt_ser.close()
+            # Check if dial failure is due to OOS before marking plain Fail
+            oos_result = self._check_and_handle_oos(current_itr, date, start_time, "Dial failed")
+            if oos_result is not None:
+                return oos_result
             self._update_report(current_itr, date, start_time, "NA", "00", "Fail", "MO dial failed")
             return
 
@@ -289,6 +293,10 @@ class CallTester:
             self.logger.log("MO not dialing after ATD - marking Fail.")
             if mt_ser: mt_ser.close()
             end_call(self.mo_port, self.logger)
+            # Check if failure is due to OOS
+            oos_result = self._check_and_handle_oos(current_itr, date, start_time, "MO failed to establish call")
+            if oos_result is not None:
+                return oos_result
             self._update_report(current_itr, date, start_time, "NA", "00",
                                 "Fail", "MO failed to establish call")
             return
@@ -307,6 +315,10 @@ class CallTester:
             self.logger.log("MT did not ring or answer within 30s.")
             end_call(self.mo_port, self.logger)
             end_call(self.mt_port, self.logger)
+            # Check if ring timeout is due to OOS
+            oos_result = self._check_and_handle_oos(current_itr, date, start_time, "MT did not ring or answer")
+            if oos_result is not None:
+                return oos_result
             self._update_report(current_itr, date, start_time, "NA", "00",
                                 "Fail", "MT did not ring or answer")
             return
@@ -317,13 +329,17 @@ class CallTester:
         hold_secs  = int(self.duration)
         self.logger.log(f"Call connected. Holding for {hold_secs}s...")
 
-        # Interruptible hold — checks pause every second so a pause click
-        # stops the ongoing call immediately instead of waiting for it to finish.
-        elapsed = 0
-        paused_mid_call = False
-        while elapsed < hold_secs:
+        # Interruptible hold — tracks wall-clock time so serial AT reads for
+        # OOS checks never inflate the configured call duration.
+        hold_deadline    = time.monotonic() + hold_secs
+        paused_mid_call  = False
+        _oos_check_every = 5          # run OOS network check every N seconds
+        _last_oos_check  = time.monotonic()
+
+        while time.monotonic() < hold_deadline:
             time.sleep(1)
-            elapsed += 1
+
+            # ── Pause check ───────────────────────────────────────────────────
             if self.pause_event.isSet():
                 self.pause_event.clear()
                 self.logger.log("Pause detected mid-call — ending call now.")
@@ -336,8 +352,33 @@ class CallTester:
                 paused_mid_call = True
                 break
 
+            # ── OOS CHECK DURING ACTIVE CALL (every 5 s, not every tick) ─────
+            now = time.monotonic()
+            if now - _last_oos_check >= _oos_check_every:
+                _last_oos_check = now
+                mo_registered = check_network_registration_status(self.mo_port)
+                mt_registered = check_network_registration_status(self.mt_port)
+                if not mo_registered or not mt_registered:
+                    # Make sure this is truly OOS and not a physical disconnect
+                    still_connected, _ = check_device_disconnection(self.mo_port, self.mt_port, self.logger)
+                    if not still_connected:
+                        raise Exception("Device disconnected!")
+
+                    oos_ports = []
+                    if not mo_registered:
+                        oos_ports.append(f"MO ({self.mo_port})")
+                    if not mt_registered:
+                        oos_ports.append(f"MT ({self.mt_port})")
+
+                    self.logger.log(f"⚠️ OOS DURING CALL: {oos_ports} — ending call and waiting for network return")
+                    end_call(self.mo_port, self.logger)
+                    end_call(self.mt_port, self.logger)
+                    end_time = datetime.now().strftime("%H:%M:%S")
+
+                    oos_result = self._wait_for_network_return(oos_ports, current_itr, date, start_time, end_time)
+                    return oos_result
+
         # ── Step 9: End call on both sides ────────────────────────────────────
-        # (call already ended inside the hold loop if paused mid-call)
         if not paused_mid_call:
             end_call(self.mo_port, self.logger)
             time.sleep(0.5)
@@ -346,8 +387,6 @@ class CallTester:
         end_time = datetime.now().strftime("%H:%M:%S")
 
         if paused_mid_call:
-            # Iteration was interrupted — log it as Paused and signal run_test
-            # to retry this same iteration number after resume.
             self.logger.log(f"Iteration {current_itr} interrupted by pause — will retry.")
             self._update_report(current_itr, date, start_time, end_time,
                                 "00", "Paused", "Call stopped by pause — will retry")
@@ -359,8 +398,6 @@ class CallTester:
         self.logger.log(f"Iteration {current_itr} PASS — call held for {hold_secs}s")
 
         # ── Step 9b: Collect NW parameters from both devices ─────────────────
-        # Collected after the call ends so AT port is free on both sides.
-        # collect_nw_params() never raises — returns N/A for unavailable fields.
         self.logger.log("Collecting NW parameters from MO and MT devices...")
         nw_mo = collect_nw_params(self.mo_port, self.logger)
         nw_mt = collect_nw_params(self.mt_port, self.logger)
@@ -371,6 +408,89 @@ class CallTester:
         self._update_report(current_itr, date, start_time, end_time,
                             self.call_duration, self.result, self.comment,
                             nw_mo=nw_mo, nw_mt=nw_mt)
+
+    def _check_and_handle_oos(self, current_itr, date, start_time, original_reason):
+        """
+        Called after a call attempt fails. Checks if the failure was caused by OOS.
+        If OOS is detected, logs it, notifies the UI, waits for network return,
+        and returns "oos_retry" so the iteration is retried.
+        Returns None if the failure was NOT due to OOS.
+        """
+        mo_registered = check_network_registration_status(self.mo_port)
+        mt_registered = check_network_registration_status(self.mt_port)
+        if mo_registered and mt_registered:
+            return None   # Not OOS — caller handles normal failure
+
+        # Confirm devices are still physically connected
+        still_connected, _ = check_device_disconnection(self.mo_port, self.mt_port, self.logger)
+        if not still_connected:
+            return None   # Physical disconnect — let caller raise exception
+
+        oos_ports = []
+        if not mo_registered:
+            oos_ports.append(f"MO ({self.mo_port})")
+        if not mt_registered:
+            oos_ports.append(f"MT ({self.mt_port})")
+
+        self.logger.log(f"⚠️ OOS DETECTED (call failed due to no network): {oos_ports}")
+        end_time = datetime.now().strftime("%H:%M:%S")
+        return self._wait_for_network_return(oos_ports, current_itr, date, start_time, end_time)
+
+    def _wait_for_network_return(self, oos_ports, current_itr, date, start_time, end_time):
+        """
+        Signals the UI with OOS alert, blocks until both devices regain network
+        (or test is stopped), then returns the appropriate sentinel:
+          "oos_retry"  — devices back online, run_test should retry this iteration
+          "oos_abort"  — test was stopped during the wait
+        Also writes an OOS row into the report.
+        """
+        from backend.cat_f_tool.service import cat_f_state
+
+        self.logger.log(f"📵 OOS devices: {', '.join(oos_ports)} — pausing test, waiting for service...")
+
+        # Write OOS row in report
+        self._update_report(current_itr, date, start_time, end_time,
+                            "00", "OOS", f"Device in OOS zone: {', '.join(oos_ports)}")
+
+        # Signal the UI
+        cat_f_state["oos_detected"] = True
+        cat_f_state["oos_devices"]  = oos_ports
+        my_test_id = cat_f_state.get("test_id")
+
+        from backend.cat_f_tool.service import _stop_event
+
+        # Poll until both devices are back in service
+        while True:
+            time.sleep(5)
+
+            # Honour stop request
+            if _stop_event.is_set():
+                self.logger.log("⏹️ Test stopped during OOS wait")
+                cat_f_state["oos_detected"] = False
+                cat_f_state["oos_devices"]  = []
+                return "oos_abort"
+
+            # New test started?
+            if cat_f_state.get("test_id") != my_test_id:
+                self.logger.log("⚠️ New test started during OOS wait — aborting")
+                return "oos_abort"
+
+            # Check registration on both ports
+            mo_ok = check_network_registration_status(self.mo_port)
+            mt_ok = check_network_registration_status(self.mt_port)
+
+            if mo_ok and mt_ok:
+                self.logger.log("✅ Both devices back in service — retrying iteration")
+                cat_f_state["oos_detected"] = False
+                cat_f_state["oos_devices"]  = []
+                return "oos_retry"
+            else:
+                still_oos = []
+                if not mo_ok:
+                    still_oos.append(f"MO ({self.mo_port})")
+                if not mt_ok:
+                    still_oos.append(f"MT ({self.mt_port})")
+                self.logger.log(f"⏳ Still OOS: {', '.join(still_oos)} — waiting...")
 
     def run_test(self, queue: Queue):
         self.logger.log("run_test started")
@@ -388,6 +508,14 @@ class CallTester:
                     # Iteration was paused mid-call — retry same iteration number
                     self.logger.log(f"Retrying iteration {current_itr} after resume.")
                     continue
+                if result == "oos_retry":
+                    # Iteration failed due to OOS — retry same iteration number
+                    self.logger.log(f"Retrying iteration {current_itr} after OOS recovery.")
+                    continue
+                if result == "oos_abort":
+                    # Test was stopped/changed during OOS wait
+                    self.logger.log("OOS abort — ending run_test.")
+                    return
                 time.sleep(self.delay)
                 progress.update_progress()
                 queue.put(current_itr)
@@ -437,6 +565,12 @@ class CallTester:
                     if result == "retry":
                         self.logger.log(f"Retrying MT iteration {current_itr} after resume.")
                         continue
+                    if result == "oos_retry":
+                        self.logger.log(f"Retrying MT iteration {current_itr} after OOS recovery.")
+                        continue
+                    if result == "oos_abort":
+                        self.logger.log("OOS abort during MT phase — ending run_test.")
+                        return
                     time.sleep(self.delay)
                     progress.update_progress()
                     queue.put(current_itr)
