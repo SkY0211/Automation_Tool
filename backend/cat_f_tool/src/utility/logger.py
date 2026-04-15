@@ -6,6 +6,31 @@ from datetime import datetime
 from backend.cat_f_tool.src.utility.exceptions import FPAException
 
 
+# ── UI log bridge ─────────────────────────────────────────────────────────────
+# Levels we surface to the live UI log box.  DEBUG is too noisy for the UI
+# (raw serial bytes, hex dumps) so we show INFO and above, plus all DEBUG
+# messages that contain useful keywords.
+_UI_KEYWORDS = (
+    "iteration", "dialing", "dial", "call", "ring", "answer", "ata",
+    "pass", "fail", "paused", "resumed", "stopped", "oos", "oos zone",
+    "reconnect", "device", "nw params", "collected", "holding",
+    "start", "done", "error", "warning", "idle", "connecting",
+)
+
+def _push_to_ui(message: str, level: int):
+    """Push a log line into service._ui_logs so the Flask /logs endpoint picks it up."""
+    try:
+        from backend.cat_f_tool.service import _ui_logs, _log_lock
+        ts   = datetime.now().strftime("%H:%M:%S")
+        line = f"[{ts}] {message}"
+        with _log_lock:
+            _ui_logs.append(line)
+            if len(_ui_logs) > 500:
+                _ui_logs.pop(0)
+    except Exception:
+        pass   # never crash the automation because of a UI log failure
+
+
 class CustomLogger:
     def __init__(self, instance_name, latest_log_dir):
         self.instance_id = instance_name
@@ -33,3 +58,16 @@ class CustomLogger:
         self.log_text.log(level, message)
         if error:
             self.log_text.log(logging.ERROR, FPAException(error, sys))
+
+        # ── Bridge to UI log ──────────────────────────────────────────────────
+        # Always push WARNING / ERROR / INFO to UI.
+        # For DEBUG, only push if the message contains a useful keyword so the
+        # UI doesn't get flooded with raw serial bytes.
+        msg_lower = str(message).lower()
+        if level >= logging.WARNING:
+            _push_to_ui(str(message), level)
+        elif level == logging.INFO:
+            _push_to_ui(str(message), level)
+        elif level == logging.DEBUG:
+            if any(kw in msg_lower for kw in _UI_KEYWORDS):
+                _push_to_ui(str(message), level)

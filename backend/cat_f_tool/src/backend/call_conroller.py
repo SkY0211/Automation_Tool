@@ -541,13 +541,14 @@ class CallTester:
                         end_call(self.mo_port, self.logger)
                     elif self.mt_port not in devices:
                         end_call(self.mt_port, self.logger)
+                    self.logger.log(f"⚠️ Device disconnected: {devices} — waiting for reconnect...", level=logging.WARNING)
                     while True:
-                        self.logger.log("UI Warning: Device Not Found!")
                         reconnect_status = reconnect(self.home, devices, 20)
                         status, devices  = check_device_disconnection(self.mo_port, self.mt_port, self.logger)
                         if reconnect_status and status:
-                            self.logger.log("Device reconnected")
+                            self.logger.log("✅ Device reconnected — resuming test")
                             break
+                        self.logger.log("⏳ Still waiting for device to reconnect...", level=logging.WARNING)
                     self._make_devices_idle()
                 else:
                     self.logger.log(f"System error in iteration {current_itr}: {e}", level=logging.ERROR)
@@ -596,13 +597,14 @@ class CallTester:
                             end_call(self.mo_port, self.logger)
                         elif self.mt_port not in devices:
                             end_call(self.mt_port, self.logger)
+                        self.logger.log(f"⚠️ Device disconnected: {devices} — waiting for reconnect...", level=logging.WARNING)
                         while True:
-                            self.logger.log("UI Warning: Device Not Found!")
                             reconnect_status = reconnect(self.home, devices, 20)
                             status, devices  = check_device_disconnection(self.mo_port, self.mt_port, self.logger)
                             if reconnect_status and status:
-                                self.logger.log("Device reconnected")
+                                self.logger.log("✅ Device reconnected — resuming test")
                                 break
+                            self.logger.log("⏳ Still waiting for device to reconnect...", level=logging.WARNING)
                         self._make_devices_idle()
                     else:
                         self.logger.log(f"System error in MT iteration {current_itr}: {e}", level=logging.ERROR)

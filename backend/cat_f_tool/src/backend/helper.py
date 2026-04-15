@@ -32,6 +32,7 @@ def check_device_disconnection(port1, port2, logger: CustomLogger):
     """
     Check if both ports are still present.
     Uses a fast non-blocking port list — no sleep, no retry loop.
+    Only logs a warning the first time a port goes missing, not on every poll.
     """
     try:
         from serial.tools import list_ports
@@ -40,12 +41,15 @@ def check_device_disconnection(port1, port2, logger: CustomLogger):
         unavailable_ports = []
         if port1 not in available:
             unavailable_ports.append(port1)
-            logger.log(f"Device on port {port1} is disconnected.", level=logging.WARNING)
         if port2 not in available:
             unavailable_ports.append(port2)
-            logger.log(f"Device on port {port2} is disconnected.", level=logging.WARNING)
 
         if unavailable_ports:
+            # Log once — callers that loop (reconnect) should log their own status
+            logger.log(
+                f"Device(s) not found: {', '.join(unavailable_ports)}",
+                level=logging.WARNING
+            )
             return False, unavailable_ports
         return True, []
     except Exception as e:
