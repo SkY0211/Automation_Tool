@@ -396,12 +396,27 @@ class CallTester:
         self.call_duration = self.duration
         self.logger.log(f"Iteration {current_itr} PASS — call held for {hold_secs}s")
 
-        # Collect NW params and write report. With the fixed _send() in helper.py
-        # this now takes ~3-5s total instead of ~50s, so the inter-call delay is
-        # self.delay + ~3s which is acceptable.
+        # Collect NW params for both devices in PARALLEL — cuts collection time
+        # from ~7s (sequential) to ~4s (concurrent) so the delay is closer to exact.
         self.logger.log("Collecting NW parameters from MO and MT devices...")
-        nw_mo = collect_nw_params(self.mo_port, self.logger)
-        nw_mt = collect_nw_params(self.mt_port, self.logger)
+        nw_mo_result = [None]
+        nw_mt_result = [None]
+
+        def _collect_mo():
+            nw_mo_result[0] = collect_nw_params(self.mo_port, self.logger)
+
+        def _collect_mt():
+            nw_mt_result[0] = collect_nw_params(self.mt_port, self.logger)
+
+        t_mo = threading.Thread(target=_collect_mo, daemon=True)
+        t_mt = threading.Thread(target=_collect_mt, daemon=True)
+        t_mo.start()
+        t_mt.start()
+        t_mo.join()
+        t_mt.join()
+
+        nw_mo = nw_mo_result[0]
+        nw_mt = nw_mt_result[0]
         self.logger.log(f"MO NW params: {nw_mo}")
         self.logger.log(f"MT NW params: {nw_mt}")
         self._update_report(current_itr, date, start_time, end_time,
