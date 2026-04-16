@@ -536,7 +536,7 @@ class CallTester:
         _svc["device_disconnected"] = True
         _svc["disconnected_device"] = ", ".join(devices)
 
-        # Wait until all ports are back
+        # Wait until all ports are back — silent polling, no repeated log spam
         while True:
             if _stop_event.is_set():
                 self.logger.log("⏹️ Test stopped during disconnect wait.")
@@ -545,20 +545,20 @@ class CallTester:
                 return False
 
             reconnect_status = reconnect(self.home, devices, 20)
-            status, still_missing = check_device_disconnection(
-                self.mo_port, self.mt_port, self.logger
-            )
-            if reconnect_status and status:
+
+            # Check silently — skip the logger so "Device(s) not found" doesn't
+            # repeat on every poll tick while we are already showing the popup
+            from serial.tools import list_ports as _lp
+            available = [p.device for p in _lp.comports()]
+            still_missing = [p for p in [self.mo_port, self.mt_port] if p not in available]
+
+            if reconnect_status and not still_missing:
                 self.logger.log("✅ Device reconnected — resuming from same iteration")
                 _svc["device_disconnected"] = False
                 _svc["disconnected_device"] = None
                 self._make_devices_idle()
                 return True
-
-            self.logger.log(
-                f"⏳ Still waiting for reconnect: {', '.join(still_missing)}",
-                level=logging.WARNING
-            )
+            # No log here — we already told the user once above
 
     def run_test(self, queue: Queue):
         self.logger.log("run_test started")
