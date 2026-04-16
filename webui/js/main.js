@@ -644,11 +644,12 @@ document.addEventListener("DOMContentLoaded", () => {
     let dev2                = null;
     let configuringDevice   = null;    // "dev1" | "dev2"
 
-    let catfRunning     = false;
-    let catfPaused      = false;
-    let catfLastRunning = false;
-    let catfPollTimer   = null;
-    let catfLogTimer    = null;
+    let catfRunning        = false;
+    let catfPaused         = false;
+    let catfLastRunning    = false;
+    let catfPollTimer      = null;
+    let catfLogTimer       = null;
+    let catfDisconnected   = false;   // tracks whether disconnect popup is currently showing
 
     // ── Country dropdown ──────────────────────────────────────────────
     function populateCountries(filter) {
@@ -972,8 +973,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // ── Disconnect modal ──────────────────────────────────────────────
     if (catfCloseDisconModal) {
       catfCloseDisconModal.addEventListener("click", () => {
+        // Only visually dismiss — do NOT call clear-disconnect here.
+        // The backend is still waiting for the device to reconnect.
+        // The polling loop will auto-dismiss this modal and clear the
+        // server flag once device_disconnected becomes false naturally.
         catfDisconModal.classList.add("hidden");
         catfDisconModal.style.display = "none";
+        // Keep catfDisconnected = true so polling knows we're still in disconnect state
       });
     }
 
@@ -1013,14 +1019,30 @@ document.addEventListener("DOMContentLoaded", () => {
             setBadge("running",
               `▶ Running — iter ${data.current_iteration || 0}/${data.total_iterations || 0}`);
 
-          if (data.device_disconnected && nowRunning) {
-            catfDisconMsg.textContent = "A device disconnected. Test paused. Reconnect and click Resume.";
+          // ── Device disconnect detection ───────────────────────────────
+          if (data.device_disconnected && nowRunning && !catfDisconnected) {
+            // Device just disconnected — show popup, update badge
+            catfDisconnected = true;
+            const devName = data.disconnected_device || "A device";
+            catfDisconMsg.textContent =
+              `⚠️ ${devName} disconnected. Test is paused on iteration ` +
+              `${data.current_iteration || "current"}. ` +
+              `The test will automatically resume from the same iteration once the device is reconnected.`;
             catfDisconModal.classList.remove("hidden");
             catfDisconModal.style.display = "flex";
-            catfPaused = true;
-            catfPauseBtn.classList.add("hidden");
-            catfResumeBtn.classList.remove("hidden");
             setBadge("paused", "⏸ Paused — device disconnected");
+          }
+
+          if (!data.device_disconnected && catfDisconnected) {
+            // Device reconnected — auto-dismiss popup, restore running badge
+            catfDisconnected = false;
+            catfDisconModal.classList.add("hidden");
+            catfDisconModal.style.display = "none";
+            fetch("/api/cat-f/clear-disconnect", { method: "POST" }).catch(() => {});
+            if (nowRunning) {
+              setBadge("running",
+                `▶ Running — iter ${data.current_iteration || 0}/${data.total_iterations || 0}`);
+            }
           }
 
           // ── OOS detection ─────────────────────────────────────────────
@@ -1068,8 +1090,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ── Post-test UI ──────────────────────────────────────────────────
     function onTestEnded(reason, errMsg) {
-      catfRunning = false;
-      catfPaused  = false;
+      catfRunning      = false;
+      catfPaused       = false;
+      catfDisconnected = false;
       stopCatFPolling();
 
       // Dismiss any lingering OOS or disconnect modals
@@ -1109,6 +1132,7 @@ document.addEventListener("DOMContentLoaded", () => {
       catfRunning        = false;
       catfPaused         = false;
       catfLastRunning    = false;
+      catfDisconnected   = false;
 
       // Reset page 2 UI
       dev1Info.innerHTML = `<span class="catf-info-placeholder">Not configured yet</span>`;

@@ -506,6 +506,60 @@ class CallTester:
                     still_oos.append(f"MT ({self.mt_port})")
                 self.logger.log(f"⏳ Still OOS: {', '.join(still_oos)} — waiting...")
 
+    def _handle_disconnect(self, devices: list):
+        """
+        Called when a device disconnect is detected during run_test.
+        - Ends any active call on available ports
+        - Sets cat_f_state so the UI shows the disconnect popup and paused badge
+        - Blocks until both ports reappear (or stop is requested)
+        - Clears cat_f_state and returns so run_test can retry the same iteration
+        Returns True  → device back, retry same iteration
+        Returns False → stop was requested, abort run_test
+        """
+        from backend.cat_f_tool.service import cat_f_state as _svc, _stop_event
+
+        # End any call on whichever port is still alive
+        for port in [self.mo_port, self.mt_port]:
+            if port not in devices:
+                try:
+                    end_call(port, self.logger)
+                except Exception:
+                    pass
+
+        self.logger.log(
+            f"⚠️ Device disconnected: {', '.join(devices)} — "
+            f"test paused, waiting for reconnect...",
+            level=logging.WARNING
+        )
+
+        # Signal UI
+        _svc["device_disconnected"] = True
+        _svc["disconnected_device"] = ", ".join(devices)
+
+        # Wait until all ports are back
+        while True:
+            if _stop_event.is_set():
+                self.logger.log("⏹️ Test stopped during disconnect wait.")
+                _svc["device_disconnected"] = False
+                _svc["disconnected_device"] = None
+                return False
+
+            reconnect_status = reconnect(self.home, devices, 20)
+            status, still_missing = check_device_disconnection(
+                self.mo_port, self.mt_port, self.logger
+            )
+            if reconnect_status and status:
+                self.logger.log("✅ Device reconnected — resuming from same iteration")
+                _svc["device_disconnected"] = False
+                _svc["disconnected_device"] = None
+                self._make_devices_idle()
+                return True
+
+            self.logger.log(
+                f"⏳ Still waiting for reconnect: {', '.join(still_missing)}",
+                level=logging.WARNING
+            )
+
     def run_test(self, queue: Queue):
         self.logger.log("run_test started")
         progress    = TestProgress(self.progress_frame, self.iterations)
@@ -537,22 +591,13 @@ class CallTester:
             except Exception as e:
                 status, devices = check_device_disconnection(self.mo_port, self.mt_port, self.logger)
                 if not status:
-                    if self.mo_port not in devices:
-                        end_call(self.mo_port, self.logger)
-                    elif self.mt_port not in devices:
-                        end_call(self.mt_port, self.logger)
-                    self.logger.log(f"⚠️ Device disconnected: {devices} — waiting for reconnect...", level=logging.WARNING)
-                    while True:
-                        reconnect_status = reconnect(self.home, devices, 20)
-                        status, devices  = check_device_disconnection(self.mo_port, self.mt_port, self.logger)
-                        if reconnect_status and status:
-                            self.logger.log("✅ Device reconnected — resuming test")
-                            break
-                        self.logger.log("⏳ Still waiting for device to reconnect...", level=logging.WARNING)
-                    self._make_devices_idle()
+                    # Device physically disconnected — pause, wait, retry same iteration
+                    resumed = self._handle_disconnect(devices)
+                    if not resumed:
+                        return   # stop was requested during wait
+                    # current_itr NOT incremented — retry same iteration
                 else:
                     self.logger.log(f"System error in iteration {current_itr}: {e}", level=logging.ERROR)
-                    # Continue to next iteration on non-disconnect errors
                     self._update_report(
                         current_itr,
                         datetime.now().strftime("%d/%m/%Y"),
@@ -593,19 +638,11 @@ class CallTester:
                 except Exception as e:
                     status, devices = check_device_disconnection(self.mo_port, self.mt_port, self.logger)
                     if not status:
-                        if self.mo_port not in devices:
-                            end_call(self.mo_port, self.logger)
-                        elif self.mt_port not in devices:
-                            end_call(self.mt_port, self.logger)
-                        self.logger.log(f"⚠️ Device disconnected: {devices} — waiting for reconnect...", level=logging.WARNING)
-                        while True:
-                            reconnect_status = reconnect(self.home, devices, 20)
-                            status, devices  = check_device_disconnection(self.mo_port, self.mt_port, self.logger)
-                            if reconnect_status and status:
-                                self.logger.log("✅ Device reconnected — resuming test")
-                                break
-                            self.logger.log("⏳ Still waiting for device to reconnect...", level=logging.WARNING)
-                        self._make_devices_idle()
+                        # Device physically disconnected — pause, wait, retry same iteration
+                        resumed = self._handle_disconnect(devices)
+                        if not resumed:
+                            return   # stop was requested during wait
+                        # current_itr NOT incremented — retry same MT iteration
                     else:
                         self.logger.log(f"System error in MT iteration {current_itr}: {e}", level=logging.ERROR)
                         self._update_report(

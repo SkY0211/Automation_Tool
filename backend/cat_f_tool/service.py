@@ -37,9 +37,10 @@ cat_f_state = {
 }
 
 # ── Threading events (pause / resume / stop) ─────────────────────────────────
-_pause_event  = threading.Event()
-_resume_event = threading.Event()
-_stop_event   = threading.Event()
+_pause_event      = threading.Event()
+_resume_event     = threading.Event()
+_stop_event       = threading.Event()
+_disconnect_event = threading.Event()   # set while a device is disconnected
 
 _ui_logs  = []
 _log_lock = threading.Lock()
@@ -179,6 +180,7 @@ def _run_cat_f(config: dict):
     _stop_event.clear()
     _pause_event.clear()
     _resume_event.clear()
+    _disconnect_event.clear()
 
     # ── Run test ─────────────────────────────────────────────────────────────
     try:
@@ -309,11 +311,21 @@ def stop_cat_f_test():
     if not cat_f_state.get("test_running"):
         return {"status": "error", "message": "No test is running"}
     _stop_event.set()
-    # Also clear any pending OOS alert so the UI unblocks immediately
-    cat_f_state["oos_detected"] = False
-    cat_f_state["oos_devices"]  = []
+    _disconnect_event.set()   # unblock any waiting reconnect loop
+    # Also clear any pending OOS / disconnect alerts so the UI unblocks immediately
+    cat_f_state["oos_detected"]        = False
+    cat_f_state["oos_devices"]         = []
+    cat_f_state["device_disconnected"] = False
+    cat_f_state["disconnected_device"] = None
     _add_log("Stop requested")
     return {"status": "success", "message": "Stop signal sent"}
+
+
+def clear_cat_f_disconnect_alert():
+    """Clear the CAT-F device-disconnect alert flag (called by the UI modal OK button)."""
+    cat_f_state["device_disconnected"] = False
+    cat_f_state["disconnected_device"] = None
+    return {"status": "success", "message": "Disconnect alert cleared"}
 
 
 def clear_cat_f_oos_alert():
