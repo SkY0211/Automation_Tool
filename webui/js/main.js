@@ -909,6 +909,17 @@ document.addEventListener("DOMContentLoaded", () => {
         catfProgressTxt.innerText = "Progress: 0%";
         catfFolderBtn.style.display = "block";
 
+        // Blur / disable Back, Reset and Start Test — only Pause & Stop usable
+        p3Back.disabled         = true;
+        p3Back.style.opacity    = "0.35";
+        p3Back.style.cursor     = "not-allowed";
+        p3Reset.disabled        = true;
+        p3Reset.style.opacity   = "0.35";
+        p3Reset.style.cursor    = "not-allowed";
+        catfStartBtn.disabled   = true;
+        catfStartBtn.style.opacity = "0.35";
+        catfStartBtn.style.cursor  = "not-allowed";
+
         setBadge("running", "▶ Running");
         catfPreRunActs.classList.add("hidden");
         catfControlBtns.classList.remove("hidden");
@@ -1106,6 +1117,17 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       fetch("/api/cat-f/clear-oos", { method: "POST" }).catch(() => {});
 
+      // Re-enable Back, Reset and Start Test buttons
+      p3Back.disabled         = false;
+      p3Back.style.opacity    = "";
+      p3Back.style.cursor     = "";
+      p3Reset.disabled        = false;
+      p3Reset.style.opacity   = "";
+      p3Reset.style.cursor    = "";
+      catfStartBtn.disabled   = false;
+      catfStartBtn.style.opacity = "";
+      catfStartBtn.style.cursor  = "";
+
       catfControlBtns.classList.add("hidden");
       catfControlBtns.style.display = "none";
       catfPreRunActs.classList.remove("hidden");
@@ -1156,6 +1178,17 @@ document.addEventListener("DOMContentLoaded", () => {
       catfPreRunActs.classList.remove("hidden");
       catfStatusBadge.className = "catf-status-badge hidden";
       summaryStrip.innerHTML    = "";
+
+      // Re-enable Back, Reset and Start Test buttons
+      p3Back.disabled         = false;
+      p3Back.style.opacity    = "";
+      p3Back.style.cursor     = "";
+      p3Reset.disabled        = false;
+      p3Reset.style.opacity   = "";
+      p3Reset.style.cursor    = "";
+      catfStartBtn.disabled   = false;
+      catfStartBtn.style.opacity = "";
+      catfStartBtn.style.cursor  = "";
     }
 
     function setBadge(type, text) {
