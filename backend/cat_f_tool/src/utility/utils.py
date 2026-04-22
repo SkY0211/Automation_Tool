@@ -14,6 +14,7 @@ from backend.cat_f_tool.src.data.dir_paths   import Paths
 
 import serial
 from serial.tools import list_ports
+from backend.cat_f_tool.src.utility.serial_spy import open_serial
 
 
 def get_parent_dir():
@@ -50,7 +51,7 @@ def create_folders():
 def send_at_command(serial_port, command, logger: CustomLogger):
     """Send an AT command and return the response."""
     try:
-        ser      = serial.Serial(serial_port, baudrate=115200, timeout=2)
+        ser      = open_serial(serial_port, baudrate=115200, timeout=2)
         ser.write(command.encode('utf-8') + b'\r\n')
         response = ser.read_until(b'OK').decode('utf-8').strip()
         ser.close()
@@ -93,7 +94,7 @@ def find_at_port(checked_ports, logger: CustomLogger):
                 continue
             try:
                 checked_ports.append(port)
-                ser = serial.Serial(port, baudrate=115200, timeout=1)
+                ser = open_serial(port, baudrate=115200, timeout=1)
                 ser.write(b'AT\r\n')
                 response = ser.read_until(b'OK')
                 ser.close()

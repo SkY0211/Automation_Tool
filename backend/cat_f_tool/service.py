@@ -170,6 +170,10 @@ def _run_cat_f(config: dict):
     create_folders()
     _add_log(f"Output folder: {Paths.latest_report_dir_path}")
 
+    # Reset spy trace files so each test session gets fresh per-port logs
+    from backend.cat_f_tool.src.utility.serial_spy import reset_spy_files
+    reset_spy_files()
+
     logger = CatFLogger("backend", Paths.latest_log_dir_path)
 
     # ── Prepare threading events for CallTester ──────────────────────────────

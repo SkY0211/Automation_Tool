@@ -6,13 +6,14 @@ from backend.cat_f_tool.src.data.device_info  import DeviceInfo
 from backend.cat_f_tool.src.data.constants    import ERROR_CODES
 from backend.cat_f_tool.src.utility.logger    import CustomLogger
 from backend.cat_f_tool.src.utility.utils     import send_at_command, list_serial_ports, create_folders
+from backend.cat_f_tool.src.utility.serial_spy import open_serial
 
 import serial
 
 
 def check_network_registration_status(at_port):
     try:
-        with serial.Serial(at_port, baudrate=115200, timeout=1) as ser:
+        with open_serial(at_port, baudrate=115200, timeout=1) as ser:
             ser.write(b'AT+CREG?\r\n')
             time.sleep(0.1)
             response = ser.readlines()
@@ -182,7 +183,7 @@ def setup_mt_for_incoming_call(mt_port, logger):
     """
     logger.log("Pre-call URC setup on {}...".format(mt_port))
     try:
-        ser = serial.Serial(mt_port, baudrate=115200, timeout=2)
+        ser = open_serial(mt_port, baudrate=115200, timeout=2)
         ser.reset_input_buffer()
         for cmd in (b"AT+CRC=1\r\n", b"AT+CLIP=1\r\n", b"AT+COLP=1\r\n"):
             ser.write(cmd)
@@ -214,7 +215,7 @@ def wait_for_ring_on_mt(mt_port, timeout_sec, logger, ser=None):
     own_ser = False
     try:
         if ser is None:
-            ser     = serial.Serial(mt_port, baudrate=115200, timeout=0.5)
+            ser     = open_serial(mt_port, baudrate=115200, timeout=0.5)
             own_ser = True
             ser.reset_input_buffer()
             for cmd in (b"AT+CRC=1\r\n", b"AT+CLIP=1\r\n"):
@@ -232,7 +233,7 @@ def wait_for_ring_on_mt(mt_port, timeout_sec, logger, ser=None):
             if port == mt_port:
                 continue
             try:
-                s = serial.Serial(port, baudrate=115200, timeout=0.5)
+                s = open_serial(port, baudrate=115200, timeout=0.5)
                 s.reset_input_buffer()
                 sibling_sers.append((port, s))
                 logger.log("Also monitoring sibling port {}".format(port))
@@ -382,7 +383,7 @@ def answer_call_on_mt(mt_port, logger):
 def dial_number(serial_port, phone_number, logger: CustomLogger):
     def try_dial(cmd):
         try:
-            ser = serial.Serial(serial_port, baudrate=115200, timeout=3)
+            ser = open_serial(serial_port, baudrate=115200, timeout=3)
             ser.reset_input_buffer()
             ser.write(f'{cmd}\r\n'.encode())
             time.sleep(2)
@@ -423,7 +424,7 @@ def dial_number(serial_port, phone_number, logger: CustomLogger):
 
 def receive_call(serial_port, logger: CustomLogger):
     try:
-        ser = serial.Serial(serial_port, baudrate=115200, timeout=2)
+        ser = open_serial(serial_port, baudrate=115200, timeout=2)
         ser.write(b'ATA\r\n')
         time.sleep(1)
         response = ser.readlines()
@@ -441,7 +442,7 @@ def receive_call(serial_port, logger: CustomLogger):
 
 def end_call(serial_port, logger: CustomLogger):
     try:
-        ser = serial.Serial(serial_port, baudrate=115200, timeout=2)
+        ser = open_serial(serial_port, baudrate=115200, timeout=2)
         ser.write(b'ATH\r\n')
         time.sleep(0.5)
         response = ser.read(128).decode(errors='ignore')
@@ -455,7 +456,7 @@ def end_call(serial_port, logger: CustomLogger):
 
 def fetch_cell_information(serial_port):
     try:
-        ser = serial.Serial(serial_port, baudrate=115200, timeout=1)
+        ser = open_serial(serial_port, baudrate=115200, timeout=1)
         ser.write(b'AT+COPS?\r\n')
         response = ser.read_all().decode('utf-8')
         mcc_mnc_match = re.search(r'\"(\d+)(\d+)\"', response)
@@ -495,7 +496,7 @@ def decode_rssi(rssi):
 
 def get_signal_quality_2g3g(serial_port):
     try:
-        ser = serial.Serial(serial_port, baudrate=115200, timeout=1)
+        ser = open_serial(serial_port, baudrate=115200, timeout=1)
         ser.write(b'AT+CSQ\r\n')
         response = ser.read_until(b'OK').decode('utf-8')
         ser.close()
@@ -550,7 +551,7 @@ def collect_nw_params(serial_port, logger: CustomLogger) -> dict:
 
     def _send(cmd, wait=0.3):
         try:
-            with serial.Serial(serial_port, baudrate=115200, timeout=0.3) as s:
+            with open_serial(serial_port, baudrate=115200, timeout=0.3) as s:
                 s.reset_input_buffer()
                 s.write((cmd + "\r\n").encode())
                 time.sleep(wait)
