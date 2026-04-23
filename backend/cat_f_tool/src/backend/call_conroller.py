@@ -341,6 +341,13 @@ class CallTester:
         while time.monotonic() < hold_deadline:
             time.sleep(1)
 
+            # ── Stop check — cut call immediately ─────────────────────────────
+            if self.end_event.is_set():
+                self.logger.log("⏹️ Stop detected mid-call — ending call now.")
+                end_call(self.mo_port, self.logger)
+                end_call(self.mt_port, self.logger)
+                return "stopped"
+
             # ── Pause check ───────────────────────────────────────────────────
             if self.pause_event.isSet():
                 self.pause_event.clear()
@@ -581,6 +588,9 @@ class CallTester:
                 if result == "oos_abort":
                     self.logger.log("OOS abort — ending run_test.")
                     return
+                if result == "stopped":
+                    self.logger.log("⏹️ Test stopped mid-call — exiting.")
+                    return
                 time.sleep(self.delay)
                 progress.update_progress()
                 queue.put(current_itr)
@@ -627,6 +637,9 @@ class CallTester:
                         continue
                     if result == "oos_abort":
                         self.logger.log("OOS abort during MT phase — ending run_test.")
+                        return
+                    if result == "stopped":
+                        self.logger.log("⏹️ Test stopped mid-call — exiting.")
                         return
                     time.sleep(self.delay)
                     progress.update_progress()
