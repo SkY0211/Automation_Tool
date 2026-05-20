@@ -517,31 +517,41 @@ class CallTester:
         i = 1
         while i <= self.itr:
             try:
-                # ✅ NEW: Check for pause
-                while cat_a_state.get("paused", False):
-                    self.logger.log("⏸️ Test paused, waiting...")
-                    time.sleep(1)
-                    
-                    # Check if stop was requested during pause
-                    if cat_a_state.get("stop_requested", False):
-                        self.logger.log("⏹️ Test stopped during pause")
-                        _set_running_false()
-                        return
+                # ✅ Check for pause
+                if cat_a_state.get("paused", False):
+                    # Remember if this pause was triggered by a disconnect
+                    paused_due_to_disconnect = cat_a_state.get("device_disconnected", False)
+                    while cat_a_state.get("paused", False):
+                        self.logger.log("⏸️ Test paused, waiting...")
+                        time.sleep(1)
+                        if cat_a_state.get("stop_requested", False):
+                            self.logger.log("⏹️ Test stopped during pause")
+                            _set_running_false()
+                            return
+                    # If paused due to disconnect — retry the SAME iteration
+                    if paused_due_to_disconnect:
+                        self.logger.log(f"▶️ Resumed after disconnect — retrying iteration {i}")
+                        continue
 
-                # ✅ NEW: Check for stop request
+                # ✅ Check for stop request
                 if cat_a_state.get("stop_requested", False):
                     self.logger.log("⏹️ Test stopped by user")
                     _set_running_false()
                     return
 
-                # ✅ NEW: Check for device disconnection
+                # ✅ Check for device disconnection mid-loop
                 if cat_a_state.get("device_disconnected", False):
-                    self.logger.log(f"⚠️ Device disconnected: {cat_a_state.get('disconnected_device')}")
-                    # Don't automatically continue - wait for user action
-                    _set_running_false()
-                    cat_a_state["state"] = "FAILED"
-                    cat_a_state["message"] = f"Device {cat_a_state.get('disconnected_device')} disconnected"
-                    return
+                    self.logger.log(f"⚠️ Device disconnected on iteration {i} — waiting for reconnect...")
+                    while cat_a_state.get("device_disconnected", False):
+                        time.sleep(1)
+                        if cat_a_state.get("stop_requested", False):
+                            self.logger.log("⏹️ Test stopped during disconnect wait")
+                            _set_running_false()
+                            return
+                    self.logger.log(f"✅ Device reconnected — retrying iteration {i}")
+                    cat_a_state["state"]   = "RUNNING"
+                    cat_a_state["message"] = f"Retrying iteration {i}"
+                    continue
 
                 self.logger.log("#" * 50)
 
@@ -614,8 +624,26 @@ class CallTester:
                 # Delay BEFORE NEXT ITERATION
                 # --------------------------------------------------
                 self.logger.log(f"Waiting call_delay = {self.delay} seconds")
-
-                time.sleep(3)
+                # Interruptible delay — if device disconnects during sleep,
+                # skip i += 1 and retry the same iteration after reconnect.
+                _disconnected_during_delay = False
+                for _d in range(int(self.delay)):
+                    time.sleep(1)
+                    if cat_a_state.get("device_disconnected", False):
+                        _disconnected_during_delay = True
+                        self.logger.log(f"⚠️ Device disconnected during delay — will retry iteration {i}")
+                        # Wait for reconnect
+                        while cat_a_state.get("device_disconnected", False):
+                            time.sleep(1)
+                            if cat_a_state.get("stop_requested", False):
+                                _set_running_false()
+                                return
+                        self.logger.log(f"✅ Device reconnected — retrying iteration {i}")
+                        cat_a_state["state"]   = "RUNNING"
+                        cat_a_state["message"] = f"Retrying iteration {i}"
+                        break
+                if _disconnected_during_delay:
+                    continue   # jump back to top of while loop WITHOUT incrementing i
 
                 mo_report = [
                     i, date, s_time, e_time, int(c_duration), status, comment
@@ -663,7 +691,24 @@ class CallTester:
                 self.mo_df.loc[len(self.mo_df)] = mo_report
                 self.mt_df.loc[len(self.mt_df)] = mt_report
 
-                time.sleep(self.delay)
+                # Interruptible second delay
+                _disconnected_during_delay2 = False
+                for _d2 in range(int(self.delay)):
+                    time.sleep(1)
+                    if cat_a_state.get("device_disconnected", False):
+                        _disconnected_during_delay2 = True
+                        self.logger.log(f"⚠️ Device disconnected during delay — will retry iteration {i}")
+                        while cat_a_state.get("device_disconnected", False):
+                            time.sleep(1)
+                            if cat_a_state.get("stop_requested", False):
+                                _set_running_false()
+                                return
+                        self.logger.log(f"✅ Device reconnected — retrying iteration {i}")
+                        cat_a_state["state"]   = "RUNNING"
+                        cat_a_state["message"] = f"Retrying iteration {i}"
+                        break
+                if _disconnected_during_delay2:
+                    continue   # jump back WITHOUT incrementing i
 
                 # ---- TIME CALCULATION ----
                 end_time = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -708,7 +753,12 @@ class CallTester:
                         self.logger.log("UI Warning: Device Not Found!")
                         reconnect_status = reconnect(self.home, device, 20)
                         if reconnect_status and self.all_devices_connected():
-                            self.logger.log("Device reconnected")
+                            self.logger.log(f"✅ Device reconnected — retrying iteration {i}")
+                            cat_a_state["device_disconnected"] = False
+                            cat_a_state["disconnected_device"] = None
+                            cat_a_state["paused"]  = False
+                            cat_a_state["state"]   = "RUNNING"
+                            cat_a_state["message"] = f"Retrying iteration {i}"
                             break
 
         # ---- FINAL STATS ----
