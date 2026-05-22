@@ -51,7 +51,7 @@ class CallTester:
         self.dial_barrier = barriers[0]
         self.rcv_barrier = barriers[1]
         self.end_barrier = barriers[2]
-
+        
         # ✅ Get reports folder from logger (same session as logs)
         from backend.cat_a_tool.logger import get_reports_folder
         reports_folder = get_reports_folder()
