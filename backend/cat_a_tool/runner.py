@@ -95,6 +95,7 @@ def start_cat_a_test(pair_configs):
         if num_pairs > 1:
             def _coordinator():
                 from backend.cat_a_tool.progress_state import progress_data
+                from backend.cat_a_tool.service import cat_a_state
                 logger.log("⏳ Coordinator waiting for all pairs to finish...")
                 for t in threads:
                     t.join()
@@ -102,6 +103,7 @@ def start_cat_a_test(pair_configs):
                 progress_data["current"] = progress_data.get("total", 0)
                 progress_data["percent"] = 100
                 progress_data["running"] = False
+                cat_a_state["test_running"] = False
 
             threading.Thread(target=_coordinator, daemon=True).start()
 

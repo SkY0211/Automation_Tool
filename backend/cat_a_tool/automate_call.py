@@ -498,7 +498,8 @@ class CallTester:
         # ✅ In multi-pair mode, coordinator in runner.py owns progress & running flag
         def _set_running_false():
             if not getattr(self, "_multi_pair_mode", False):
-                _set_running_false()
+                progress_data["running"] = False
+                cat_a_state["test_running"] = False
 
         def _set_progress(current, total):
             if not getattr(self, "_multi_pair_mode", False):
