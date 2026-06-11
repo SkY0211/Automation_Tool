@@ -54,6 +54,10 @@ class CallTester:
         # MO calls  = MT device (dev2) calls MO device (dev1)
         # MT calls  = MO device (dev1) calls MT device (dev2)
         # MO-MT     = phase1 MO->MT then phase2 MT->MO
+        # mo_port/mt_port/mo_no/mt_no drive call execution (who dials whom).
+        # rpt_mo_*/rpt_mt_* are report-only fields that always reflect the
+        # physical MO device (dev1) and MT device (dev2) regardless of call
+        # direction, so report headers and NW columns are never swapped.
         if self.test_type == "MO calls":
             self.mo_sw   = DeviceInfo.dev2["Software Version"]
             self.mo_imei = DeviceInfo.dev2["IMEI"]
@@ -73,14 +77,26 @@ class CallTester:
             self.mt_port = DeviceInfo.dev2["AT Port"]
             self.mt_no   = DeviceInfo.dev2["Phone Number"]
         if self.test_type == "MO-MT calls":
-            self.mo_sw   = DeviceInfo.dev1["Software Version"]
-            self.mo_imei = DeviceInfo.dev1["IMEI"]
-            self.mo_port = DeviceInfo.dev1["AT Port"]
-            self.mo_no   = DeviceInfo.dev1["Phone Number"]
-            self.mt_sw   = DeviceInfo.dev2["Software Version"]
-            self.mt_imei = DeviceInfo.dev2["IMEI"]
-            self.mt_port = DeviceInfo.dev2["AT Port"]
-            self.mt_no   = DeviceInfo.dev2["Phone Number"]
+            # Phase 1: MT device (dev2) dials MO device (dev1) — same as MO calls
+            self.mo_sw   = DeviceInfo.dev2["Software Version"]
+            self.mo_imei = DeviceInfo.dev2["IMEI"]
+            self.mo_port = DeviceInfo.dev2["AT Port"]
+            self.mo_no   = DeviceInfo.dev2["Phone Number"]
+            self.mt_sw   = DeviceInfo.dev1["Software Version"]
+            self.mt_imei = DeviceInfo.dev1["IMEI"]
+            self.mt_port = DeviceInfo.dev1["AT Port"]
+            self.mt_no   = DeviceInfo.dev1["Phone Number"]
+
+        # Report fields — always physical MO device (dev1) in MO column,
+        # physical MT device (dev2) in MT column, for every test type.
+        self.rpt_mo_sw   = DeviceInfo.dev1["Software Version"]
+        self.rpt_mo_imei = DeviceInfo.dev1["IMEI"]
+        self.rpt_mo_no   = DeviceInfo.dev1["Phone Number"]
+        self.rpt_mo_port = DeviceInfo.dev1["AT Port"]
+        self.rpt_mt_sw   = DeviceInfo.dev2["Software Version"]
+        self.rpt_mt_imei = DeviceInfo.dev2["IMEI"]
+        self.rpt_mt_no   = DeviceInfo.dev2["Phone Number"]
+        self.rpt_mt_port = DeviceInfo.dev2["AT Port"]
 
         # Report workbook
         self.bold_font = Font(bold=True)
@@ -120,27 +136,26 @@ class CallTester:
         self.current_sheet.cell(row=3, column=3).font  = self.bold_font
         self.current_sheet.cell(row=4, column=1).value = "Software Version"
         self.current_sheet.cell(row=4, column=1).font  = self.bold_font
-        self.current_sheet.cell(row=4, column=2).value = self.mo_sw
-        self.current_sheet.cell(row=4, column=3).value = self.mt_sw
+        self.current_sheet.cell(row=4, column=2).value = self.rpt_mo_sw
+        self.current_sheet.cell(row=4, column=3).value = self.rpt_mt_sw
         self.current_sheet.cell(row=5, column=1).value = "IMEI"
         self.current_sheet.cell(row=5, column=1).font  = self.bold_font
-        self.current_sheet.cell(row=5, column=2).value = self.mo_imei
-        self.current_sheet.cell(row=5, column=3).value = self.mt_imei
+        self.current_sheet.cell(row=5, column=2).value = self.rpt_mo_imei
+        self.current_sheet.cell(row=5, column=3).value = self.rpt_mt_imei
         self.current_sheet.cell(row=6, column=1).value = "Phone Number"
         self.current_sheet.cell(row=6, column=1).font  = self.bold_font
-        self.current_sheet.cell(row=6, column=2).value = self.mo_no
-        self.current_sheet.cell(row=6, column=3).value = self.mt_no
+        self.current_sheet.cell(row=6, column=2).value = self.rpt_mo_no
+        self.current_sheet.cell(row=6, column=3).value = self.rpt_mt_no
         self._save_workbook()
 
     def _switch_mo_mt(self):
-        self.mo_sw   = DeviceInfo.dev2["Software Version"]
-        self.mo_imei = DeviceInfo.dev2["IMEI"]
-        self.mo_port = DeviceInfo.dev2["AT Port"]
-        self.mo_no   = DeviceInfo.dev2["Phone Number"]
-        self.mt_sw   = DeviceInfo.dev1["Software Version"]
-        self.mt_imei = DeviceInfo.dev1["IMEI"]
-        self.mt_port = DeviceInfo.dev1["AT Port"]
-        self.mt_no   = DeviceInfo.dev1["Phone Number"]
+        # Phase 2: MO device (dev1) dials MT device (dev2) — same as MT calls.
+        # rpt_mo_*/rpt_mt_* are NOT changed — they always reflect the
+        # physical MO/MT device so report headers stay correct.
+        self.mo_port = DeviceInfo.dev1["AT Port"]
+        self.mo_no   = DeviceInfo.dev1["Phone Number"]
+        self.mt_port = DeviceInfo.dev2["AT Port"]
+        self.mt_no   = DeviceInfo.dev2["Phone Number"]
 
     def _write_report_columns_names(self, worksheet, columns: List[str], row: int):
         from openpyxl.styles import Alignment as XlAlign
@@ -410,10 +425,10 @@ class CallTester:
         nw_mt_result = [None]
 
         def _collect_mo():
-            nw_mo_result[0] = collect_nw_params(self.mo_port, self.logger)
+            nw_mo_result[0] = collect_nw_params(self.rpt_mo_port, self.logger)
 
         def _collect_mt():
-            nw_mt_result[0] = collect_nw_params(self.mt_port, self.logger)
+            nw_mt_result[0] = collect_nw_params(self.rpt_mt_port, self.logger)
 
         t_mo = threading.Thread(target=_collect_mo, daemon=True)
         t_mt = threading.Thread(target=_collect_mt, daemon=True)
