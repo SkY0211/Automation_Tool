@@ -296,12 +296,18 @@ def wait_for_ring_on_mt(mt_port, timeout_sec, logger, ser=None):
             except Exception:
                 break
 
-        # Phase 3: send ATA on the AT port
-        for attempt in range(3):
+        # Phase 3: send ATA on the AT port — keep retrying until the call is
+        # actually confirmed answered (OK/CONNECT). Do not give up after a
+        # fixed number of attempts and assume success — only a real OK/CONNECT
+        # (or the legitimate silent-answer case below) counts as answered.
+        ata_deadline = time.time() + timeout_sec
+        attempt = 0
+        while time.time() < ata_deadline:
+            attempt += 1
             try:
                 ser.reset_input_buffer()
                 ser.write(b"ATA\r\n")
-                logger.log("ATA sent attempt {} on {}".format(attempt + 1, mt_port))
+                logger.log("ATA sent attempt {} on {}".format(attempt, mt_port))
                 response = b""
                 ser.timeout = 0.5
                 t_end = time.time() + 5
@@ -314,7 +320,7 @@ def wait_for_ring_on_mt(mt_port, timeout_sec, logger, ser=None):
                            for kw in ("OK", "CONNECT", "NO CARRIER", "ERROR")):
                         break
                 resp_up = response.decode(errors="ignore").upper()
-                logger.log("ATA response {}: {}".format(attempt + 1, repr(resp_up)))
+                logger.log("ATA response {}: {}".format(attempt, repr(resp_up)))
                 if "OK" in resp_up or "CONNECT" in resp_up:
                     logger.log("Call answered on {}".format(mt_port))
                     if own_ser:
@@ -323,20 +329,20 @@ def wait_for_ring_on_mt(mt_port, timeout_sec, logger, ser=None):
                 if "NO CARRIER" in resp_up or "ERROR" in resp_up:
                     time.sleep(1)
                     continue
-                if attempt >= 1:
+                if attempt >= 2:
                     logger.log("ATA silent - assuming call connected")
                     if own_ser:
                         ser.close()
                     return True
                 time.sleep(1)
             except Exception as e:
-                logger.log("ATA attempt {} error: {}".format(attempt + 1, e))
+                logger.log("ATA attempt {} error: {}".format(attempt, e))
                 time.sleep(1)
 
-        logger.log("ATA exhausted - treating as answered")
+        logger.log("ATA retries exhausted after {}s - call was not answered".format(timeout_sec))
         if own_ser:
             ser.close()
-        return True
+        return False
     except Exception as e:
         logger.log("wait_for_ring_on_mt error on {}".format(mt_port), e, logging.ERROR)
         return False
